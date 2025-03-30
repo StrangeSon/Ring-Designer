@@ -13,7 +13,7 @@ ModelImporter:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
       name: Rhino Default Material
-    second: {fileID: 2100000, guid: 68af10b4b352eb14591d2c43d1fd7ec0, type: 2}
+    second: {fileID: 2100000, guid: cba02a875f3461d4ea0c03f7b083dae4, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0

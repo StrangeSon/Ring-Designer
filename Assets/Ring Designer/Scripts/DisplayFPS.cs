@@ -17,7 +17,7 @@ namespace TownOfTrials
             // Initialize GUI style
             style = new GUIStyle();
             style.alignment = TextAnchor.UpperLeft;
-            style.normal.textColor = Color.white;
+            style.normal.textColor = Color.black;
             style.fontSize = 20;
         }
 

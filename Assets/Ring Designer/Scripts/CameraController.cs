@@ -6,14 +6,22 @@ namespace RingDesigner
     public class CameraController : MonoBehaviour
     {
         public Transform target; // Target to orbit around
-        public float rotationSpeed = 5f;
-        public float smoothTime = 0.1f;
+
+        [field: SerializeField, Range(1f, 100f)]
+        public float Sensitivity { get; private set; } = 20f;
+
+        [field: SerializeField, Range(0.01f, 0.1f)]
+        public float SmoothTime { get; private set; } = 0.05f;
+
+        [field: SerializeField, Range(0.85f, 0.99f)]
+        public float InertiaDamping { get; private set; } = 0.95f; // Controls inertia decay
 
         private Vector3 _currentRotation;
         private Vector3 _targetRotation;
         private Vector3 _rotationVelocity;
-        private bool _isDragging;
         private Vector2 _previousPointerPosition;
+        private Vector2 _inertiaVelocity;
+        private bool _isDragging;
         private InputAction _lookAction;
 
         private void Awake()
@@ -37,8 +45,9 @@ namespace RingDesigner
         private void Update()
         {
             Vector2 pointerDelta = _lookAction.ReadValue<Vector2>();
+            bool isPressing = Mouse.current.leftButton.isPressed || (Touchscreen.current?.primaryTouch.press.isPressed ?? false);
 
-            if (Mouse.current.leftButton.isPressed || (Touchscreen.current?.primaryTouch.press.isPressed ?? false))
+            if (isPressing)
             {
                 if (!_isDragging)
                 {
@@ -46,6 +55,7 @@ namespace RingDesigner
                     _previousPointerPosition = Mouse.current.leftButton.isPressed
                         ? Mouse.current.position.ReadValue()
                         : Touchscreen.current.primaryTouch.position.ReadValue();
+                    _inertiaVelocity = Vector2.zero; // Reset inertia when starting a new drag
                 }
                 else
                 {
@@ -56,17 +66,27 @@ namespace RingDesigner
                     Vector2 delta = pointerPosition - _previousPointerPosition;
                     _previousPointerPosition = pointerPosition;
 
-                    _targetRotation.y += delta.x * rotationSpeed * Time.deltaTime;
-                    _targetRotation.x -= delta.y * rotationSpeed * Time.deltaTime;
+                    _targetRotation.y += delta.x * Sensitivity * 0.01f;
+                    _targetRotation.x -= delta.y * Sensitivity * 0.01f;
                     _targetRotation.x = Mathf.Clamp(_targetRotation.x, -80f, 80f);
+
+                    _inertiaVelocity = delta * (Sensitivity * 0.01f); // Capture movement speed for inertia
                 }
             }
             else
             {
                 _isDragging = false;
+
+                // Apply inertia when not dragging
+                _targetRotation.y += _inertiaVelocity.x;
+                _targetRotation.x -= _inertiaVelocity.y;
+                _targetRotation.x = Mathf.Clamp(_targetRotation.x, -80f, 80f);
+
+                // Decay inertia over time
+                _inertiaVelocity *= InertiaDamping;
             }
 
-            _currentRotation = Vector3.SmoothDamp(_currentRotation, _targetRotation, ref _rotationVelocity, smoothTime);
+            _currentRotation = Vector3.SmoothDamp(_currentRotation, _targetRotation, ref _rotationVelocity, SmoothTime);
             transform.rotation = Quaternion.Euler(_currentRotation);
             transform.position = target.position - transform.forward * 5f; // Keeps distance from target
         }
