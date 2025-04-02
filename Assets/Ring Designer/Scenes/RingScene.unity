@@ -158,7 +158,7 @@ Camera:
   serializedVersion: 2
   m_ClearFlags: 2
   m_BackGroundColor: {r: 1, g: 1, b: 1, a: 0}
-  m_projectionMatrixMode: 1
+  m_projectionMatrixMode: 2
   m_GateFitMode: 1
   m_FOVAxisMode: 0
   m_Iso: 200
@@ -2320,6 +2320,37 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 57c3d0e2d243e8a4eba9079d15213d6b, type: 3}
   m_PrefabInstance: {fileID: 354422020}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &355034109
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 355034110}
+  m_Layer: 0
+  m_Name: Look Target
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &355034110
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 355034109}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0.59057134, y: -0, z: -0, w: 0.80698544}
+  m_LocalPosition: {x: 0, y: 0.693, z: 0.284343}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &364573248
 GameObject:
   m_ObjectHideFlags: 0
@@ -2777,11 +2808,9 @@ GameObject:
   m_Component:
   - component: {fileID: 815503187}
   - component: {fileID: 815503186}
-  - component: {fileID: 815503185}
-  - component: {fileID: 815503188}
   - component: {fileID: 815503189}
-  - component: {fileID: 815503184}
   - component: {fileID: 815503190}
+  - component: {fileID: 815503191}
   m_Layer: 0
   m_Name: Cinemachine Orbit Camera
   m_TagString: Untagged
@@ -2789,121 +2818,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &815503184
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 815503183}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 89875cdc57c54474a8a74efd9b2a3b5d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  ScanRecursively: 1
-  SuppressInputWhileBlending: 1
-  IgnoreTimeScale: 0
-  m_ControllerManager:
-    Controllers:
-    - Name: Look Orbit X
-      Owner: {fileID: 815503185}
-      Enabled: 1
-      Input:
-        InputAction: {fileID: -249484650952112664, guid: 052faaac586de48259a63d0c4782560b, type: 3}
-        Gain: 1
-        CancelDeltaTime: 0
-      InputValue: 0
-      Driver:
-        AccelTime: 0.05
-        DecelTime: 0.5
-    - Name: Look Orbit Y
-      Owner: {fileID: 815503185}
-      Enabled: 1
-      Input:
-        InputAction: {fileID: -249484650952112664, guid: 052faaac586de48259a63d0c4782560b, type: 3}
-        Gain: -1
-        CancelDeltaTime: 0
-      InputValue: 0
-      Driver:
-        AccelTime: 0.05
-        DecelTime: 0.5
-    - Name: Orbit Scale
-      Owner: {fileID: 815503185}
-      Enabled: 1
-      Input:
-        InputAction: {fileID: -5056873254644467503, guid: 052faaac586de48259a63d0c4782560b, type: 3}
-        Gain: -1
-        CancelDeltaTime: 0
-      InputValue: 0
-      Driver:
-        AccelTime: 0.05
-        DecelTime: 0.35
-  PlayerIndex: -1
-  AutoEnableInputs: 1
---- !u!114 &815503185
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 815503183}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3b5d7c088409d9a40b7b09aa707777f8, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  TargetOffset: {x: 0, y: 0, z: 0}
-  TrackerSettings:
-    BindingMode: 4
-    PositionDamping: {x: 1, y: 1, z: 1}
-    AngularDampingMode: 0
-    RotationDamping: {x: 1, y: 1, z: 1}
-    QuaternionDamping: 1
-  OrbitStyle: 0
-  Radius: 4
-  Orbits:
-    Top:
-      Radius: 2
-      Height: 5
-    Center:
-      Radius: 4
-      Height: 2.25
-    Bottom:
-      Radius: 2.5
-      Height: 0.1
-    SplineCurvature: 0.5
-  RecenteringTarget: 0
-  HorizontalAxis:
-    Value: 0
-    Center: 0
-    Range: {x: -180, y: 180}
-    Wrap: 1
-    Recentering:
-      Enabled: 0
-      Wait: 1
-      Time: 2
-    Restrictions: 0
-  VerticalAxis:
-    Value: 17.5
-    Center: 17.5
-    Range: {x: -70, y: 70}
-    Wrap: 0
-    Recentering:
-      Enabled: 0
-      Wait: 1
-      Time: 2
-    Restrictions: 0
-  RadialAxis:
-    Value: 1
-    Center: 0.5
-    Range: {x: 0.5, y: 2}
-    Wrap: 0
-    Recentering:
-      Enabled: 0
-      Wait: 1
-      Time: 2
-    Restrictions: 0
 --- !u!114 &815503186
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2924,7 +2838,7 @@ MonoBehaviour:
   m_StreamingVersion: 20241001
   m_LegacyPriority: 0
   Target:
-    TrackingTarget: {fileID: 354422021}
+    TrackingTarget: {fileID: 355034110}
     LookAtTarget: {fileID: 0}
     CustomLookAtTarget: 0
   Lens:
@@ -2962,19 +2876,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &815503188
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 815503183}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1e8b78ac948f05a46a6d8339a503172b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  LookAtOffset: {x: 0, y: 0, z: 0}
 --- !u!114 &815503189
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3008,6 +2909,40 @@ MonoBehaviour:
   FocusTarget: {fileID: 1562113977}
   FocusOffset: 0
   Profile: {fileID: 11400000, guid: 0ae966d74a68e2840b5b1a29b96a3052, type: 2}
+--- !u!114 &815503191
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 815503183}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 391fd5cf9ec35a546955826013007c5c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  Point: {fileID: -1654692200621890270, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+  Click: {fileID: 3001919216989983466, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+  MiddleClick: {fileID: -2185481485913320682, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+  RightClick: {fileID: -4090225696740746782, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+  ScrollWheel: {fileID: 6240969308177333660, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+  target: {fileID: 355034110}
+  distance: 10
+  Sensitivity: 20
+  SmoothTime: 0.1
+  minPitch: -80
+  maxPitch: 80
+  InertiaDamping: 0.95
+  ZoomSpeed: 1
+  scrollZoomSpeed: 2
+  minFOV: 15
+  maxFOV: 90
+  FOVSmoothTime: 0.1
+  panSpeed: 0.005
+  panLimitMin: {x: -0.5, y: -0.5}
+  panLimitMax: {x: 0.5, y: 0.5}
+  panSmoothTime: 0.1
+  cinemachineCamera: {fileID: 815503186}
 --- !u!1 &832575517
 GameObject:
   m_ObjectHideFlags: 0
@@ -4324,6 +4259,7 @@ SceneRoots:
   - {fileID: 832575519}
   - {fileID: 588793193}
   - {fileID: 623610655}
+  - {fileID: 355034110}
   - {fileID: 354422020}
   - {fileID: 957907889}
   - {fileID: 1604966241}
@@ -4334,6 +4270,6 @@ SceneRoots:
   - {fileID: 496382130}
   - {fileID: 1802364244}
   - {fileID: 1084500649}
-  - {fileID: 815503187}
   - {fileID: 1562113977}
   - {fileID: 1703239137}
+  - {fileID: 815503187}
