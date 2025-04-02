@@ -280,7 +280,7 @@ Camera:
   m_ClearFlags: 2
   m_BackGroundColor: {r: 1, g: 1, b: 1, a: 0}
   m_projectionMatrixMode: 2
-  m_GateFitMode: 1
+  m_GateFitMode: 3
   m_FOVAxisMode: 0
   m_Iso: 200
   m_ShutterSpeed: 0.005
@@ -3092,7 +3092,7 @@ MonoBehaviour:
     Dutch: 0
     ModeOverride: 3
     PhysicalProperties:
-      GateFit: 1
+      GateFit: 3
       SensorSize: {x: 36, y: 24}
       LensShift: {x: 0, y: 0}
       FocusDistance: 10
@@ -3163,7 +3163,7 @@ MonoBehaviour:
   ZoomSpeed: 0.1
   scrollZoomSpeed: 0.2
   minDistance: 2.5
-  maxDistance: 20
+  maxDistance: 15
   distanceSmoothTime: 0.15
   panSpeed: 0.005
   panLimitMin: {x: -0.5, y: -0.5}
@@ -4494,7 +4494,7 @@ PrefabInstance:
     - target: {fileID: -8729669091723531224, guid: 503d9e744d321bd499b7577dbe25a189, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: 0cea7aeed4e1bb642afb541a12f90248, type: 2}
+      objectReference: {fileID: 2100000, guid: dde77633386698846be830f1698cc192, type: 2}
     - target: {fileID: -8679921383154817045, guid: 503d9e744d321bd499b7577dbe25a189, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
