@@ -12,7 +12,6 @@ namespace RingDesigner
         public InputActionReference RightClick;
         public InputActionReference ScrollWheel;
 
-
         [Header("Target and Orbit Settings")]
         public Transform target;
         public float distance = 10f;
@@ -25,19 +24,19 @@ namespace RingDesigner
         [Range(0.85f, 0.99f)]
         public float InertiaDamping = 0.95f;     // Inertia decay.
 
-        [Header("Zoom Settings")]
+        [Header("Zoom Settings (Using Distance)")]
         public float ZoomSpeed = 1f;             // Touch zoom speed.
         public float scrollZoomSpeed = 2f;       // Mouse scroll zoom speed.
-        public float minFOV = 15f;
-        public float maxFOV = 90f;
-        public float FOVSmoothTime = 0.1f;         // Smoothing time for FOV.
+        public float minDistance = 5f;
+        public float maxDistance = 20f;
+        public float distanceSmoothTime = 0.1f;  // Smoothing time for zoom/distance.
 
         [Header("Pan Settings")]
         // Pan offset stored in view-space (x: right, y: up)
         public float panSpeed = 0.005f;
         public Vector2 panLimitMin = new Vector2(-0.5f, -0.5f);
         public Vector2 panLimitMax = new Vector2(0.5f, 0.5f);
-        public float panSmoothTime = 0.1f;         // Smoothing time for panning.
+        public float panSmoothTime = 0.1f;       // Smoothing time for panning.
 
         [Header("Cinemachine")]
         public CinemachineCamera cinemachineCamera;
@@ -63,10 +62,10 @@ namespace RingDesigner
         private bool isPanDragging = false;
         private Vector2 lastPanPointer;
 
-        // ----- Internal State for Zoom (FOV) -----
-        private float targetFOV;
-        private float currentFOV;
-        private float fovVelocity = 0f;
+        // ----- Internal State for Zoom (Distance) -----
+        private float targetDistance;
+        private float currentDistance;
+        private float distanceVelocity = 0f;
 
         void Start()
         {
@@ -82,9 +81,8 @@ namespace RingDesigner
             currentYaw = targetYaw = euler.y;
             currentPitch = targetPitch = euler.x;
 
-            // Initialize FOV from Cinemachine lens.
-            currentFOV = targetFOV = cinemachineCamera.Lens.FieldOfView;
-
+            // Initialize distance from the starting value.
+            targetDistance = currentDistance = distance;
         }
 
         void Update()
@@ -126,21 +124,21 @@ namespace RingDesigner
             currentYaw = Mathf.SmoothDampAngle(currentYaw, targetYaw, ref rotationVelocity.x, SmoothTime);
             currentPitch = Mathf.SmoothDampAngle(currentPitch, targetPitch, ref rotationVelocity.y, SmoothTime);
 
-            // Smooth pan and FOV.
+            // Smooth pan.
             currentPan = Vector2.SmoothDamp(currentPan, targetPan, ref panVelocity, panSmoothTime);
-            currentFOV = Mathf.SmoothDamp(cinemachineCamera.Lens.FieldOfView, targetFOV, ref fovVelocity, FOVSmoothTime);
-            cinemachineCamera.Lens.FieldOfView = currentFOV;
+            // Smooth zoom/distance.
+            currentDistance = Mathf.SmoothDamp(currentDistance, targetDistance, ref distanceVelocity, distanceSmoothTime);
 
             UpdateCamera();
         }
 
         void ProcessMouse()
         {
-            var pointerPos = Point.action.ReadValue<Vector2>();
-            var scrollValue = ScrollWheel.action.ReadValue<Vector2>();
-            var leftClickIsPressed = Click.action.IsPressed();
-            var rightClickIsPressed = RightClick.action.IsPressed();
-            var middleClickIsPressed = MiddleClick.action.IsPressed();
+            Vector2 pointerPos = Point.action.ReadValue<Vector2>();
+            Vector2 scrollValue = ScrollWheel.action.ReadValue<Vector2>();
+            bool leftClickIsPressed = Click.action.IsPressed();
+            bool rightClickIsPressed = RightClick.action.IsPressed();
+            bool middleClickIsPressed = MiddleClick.action.IsPressed();
 
             // --- Orbiting with left mouse button ---
             if (leftClickIsPressed)
@@ -188,10 +186,10 @@ namespace RingDesigner
                 isPanDragging = false;
             }
 
-            // --- Zooming with mouse scroll wheel ---
+            // --- Zooming with mouse scroll wheel (changing camera distance) ---
             if (scrollValue.y != 0)
             {
-                targetFOV = Mathf.Clamp(targetFOV - scrollValue.y * scrollZoomSpeed, minFOV, maxFOV);
+                targetDistance = Mathf.Clamp(targetDistance - scrollValue.y * scrollZoomSpeed, minDistance, maxDistance);
             }
         }
 
@@ -223,19 +221,18 @@ namespace RingDesigner
             }
             else if (touchCount >= 2)
             {
-                // Two fingers: pinch zoom and pan.
+                // Two fingers: pinch zoom (change distance) and pan.
                 Vector2 touch0 = touches[0].position.ReadValue();
                 Vector2 touch1 = touches[1].position.ReadValue();
 
-                // --- Pinch Zoom ---
+                // --- Pinch Zoom (update target distance) ---
                 float currentPinchDistance = Vector2.Distance(touch0, touch1);
-                // Use previous frame’s distance from the touches.
                 float lastPinchDistance = Vector2.Distance(
                     touches[0].ReadValueFromPreviousFrame().position,
                     touches[1].ReadValueFromPreviousFrame().position
                 );
                 float deltaDistance = currentPinchDistance - lastPinchDistance;
-                targetFOV = Mathf.Clamp(targetFOV - deltaDistance * ZoomSpeed, minFOV, maxFOV);
+                targetDistance = Mathf.Clamp(targetDistance - deltaDistance * ZoomSpeed, minDistance, maxDistance);
 
                 // --- Two-finger Pan ---
                 Vector2 avgTouch = (touch0 + touch1) * 0.5f;
@@ -265,8 +262,8 @@ namespace RingDesigner
             Quaternion rotation = Quaternion.Euler(currentPitch, currentYaw, 0);
             // Compute world-space pan offset relative to current view.
             Vector3 panOffset = rotation * new Vector3(currentPan.x, currentPan.y, 0);
-            // Compute new camera position.
-            Vector3 direction = rotation * new Vector3(0, 0, -distance);
+            // Compute new camera position using the current distance.
+            Vector3 direction = rotation * new Vector3(0, 0, -currentDistance);
             Vector3 newTargetPos = target.position + panOffset;
             transform.position = newTargetPos + direction;
             transform.LookAt(newTargetPos);
