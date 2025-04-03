@@ -3158,6 +3158,7 @@ MonoBehaviour:
   target: {fileID: 355034110}
   distance: 10
   Sensitivity: 20
+  TouchSensitivity: 20
   SmoothTime: 0.1
   minPitch: -80
   maxPitch: 80

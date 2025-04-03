@@ -19,6 +19,7 @@ namespace RingDesigner
         public Transform target;
         public float distance = 10f;
         public float Sensitivity = 20f;          // Rotation sensitivity.
+        public float TouchSensitivity = 1f;
         public float SmoothTime = 0.1f;          // Smoothing time for orbit.
         [Range(-90f, 90f)]
         public float minPitch = -80f;
@@ -70,6 +71,9 @@ namespace RingDesigner
         private float currentDistance;
         private float distanceVelocity = 0f;
 
+        Vector2 previousPrimaryTouchPosition = Vector2.zero;
+        Vector2 previousSecondaryTouchPosition = Vector2.zero;
+
         void Start()
         {
             if (target == null)
@@ -106,7 +110,7 @@ namespace RingDesigner
                 ProcessMouse();
             Orbit();
             UpdateCamera();
-
+            StorePrevious();
 
 
 
@@ -184,43 +188,36 @@ namespace RingDesigner
                     else if (isOrbitDragging)
                     {
                         Vector2 delta = primaryTouchPosition - lastOrbitPointer;
-                        targetYaw += delta.x * Sensitivity * 0.5f;
-                        targetPitch -= delta.y * Sensitivity * 0.5f;
+                        targetYaw += delta.x * TouchSensitivity * 0.01f;
+                        targetPitch -= delta.y * TouchSensitivity * 0.01f;
                         targetPitch = Mathf.Clamp(targetPitch, minPitch, maxPitch);
                         lastOrbitPointer = primaryTouchPosition;
                         inertiaVelocity = delta * (Sensitivity * 0.5f);
                     }
                 }
-                //else if (touchCount >= 2)
-                //{
-                //    // Two fingers: pinch zoom (change distance) and pan.
-                //    Vector2 touch0 = touches[0].position.ReadValue();
-                //    Vector2 touch1 = touches[1].position.ReadValue();
+                else if (touchCount >= 2)
+                {
+                    // --- Pinch Zoom (update target distance) ---
+                    float currentPinchDistance = Vector2.Distance(primaryTouchPosition, secondaryTouchPosition);
+                    float lastPinchDistance = Vector2.Distance(previousPrimaryTouchPosition, previousSecondaryTouchPosition);
+                    float deltaDistance = currentPinchDistance - lastPinchDistance;
+                    targetDistance = Mathf.Clamp(targetDistance - deltaDistance * ZoomSpeed, minDistance, maxDistance);
 
-                //    // --- Pinch Zoom (update target distance) ---
-                //    float currentPinchDistance = Vector2.Distance(touch0, touch1);
-                //    float lastPinchDistance = Vector2.Distance(
-                //        touches[0].ReadValueFromPreviousFrame().position,
-                //        touches[1].ReadValueFromPreviousFrame().position
-                //    );
-                //    float deltaDistance = currentPinchDistance - lastPinchDistance;
-                //    targetDistance = Mathf.Clamp(targetDistance - deltaDistance * ZoomSpeed, minDistance, maxDistance);
-
-                //    // --- Two-finger Pan ---
-                //    Vector2 avgTouch = (touch0 + touch1) * 0.5f;
-                //    if (!isPanDragging)
-                //    {
-                //        isPanDragging = true;
-                //        lastPanPointer = avgTouch;
-                //    }
-                //    else
-                //    {
-                //        Vector2 panDelta = avgTouch - lastPanPointer;
-                //        targetPan.x = Mathf.Clamp(targetPan.x - panDelta.x * panSpeed, panLimitMin.x, panLimitMax.x);
-                //        targetPan.y = Mathf.Clamp(targetPan.y - panDelta.y * panSpeed, panLimitMin.y, panLimitMax.y);
-                //        lastPanPointer = avgTouch;
-                //    }
-                //}
+                    // --- Two-finger Pan ---
+                    //Vector2 avgTouch = (primaryTouchPosition + secondaryTouchPosition) * 0.5f;
+                    //if (!isPanDragging)
+                    //{
+                    //    isPanDragging = true;
+                    //    lastPanPointer = avgTouch;
+                    //}
+                    //else
+                    //{
+                    //    Vector2 panDelta = avgTouch - lastPanPointer;
+                    //    targetPan.x = Mathf.Clamp(targetPan.x - panDelta.x * panSpeed, panLimitMin.x, panLimitMax.x);
+                    //    targetPan.y = Mathf.Clamp(targetPan.y - panDelta.y * panSpeed, panLimitMin.y, panLimitMax.y);
+                    //    lastPanPointer = avgTouch;
+                    //}
+                }
                 else
                 {
                     isOrbitDragging = false;
@@ -260,6 +257,12 @@ namespace RingDesigner
                 Vector3 newTargetPos = target.position + panOffset;
                 transform.position = newTargetPos + direction;
                 transform.LookAt(newTargetPos);
+            }
+
+            void StorePrevious()
+            {
+                previousPrimaryTouchPosition = primaryTouchPosition;
+                previousSecondaryTouchPosition = secondaryTouchPosition;
             }
         }
 
