@@ -538,28 +538,92 @@
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": true
+                },
+                {
+                    "name": "PrimaryTouchDelta",
+                    "type": "Value",
+                    "id": "3742ae6e-8277-44b4-a0c6-cb5b796c9294",
+                    "expectedControlType": "Vector2",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": true
                 }
             ],
             "bindings": [
                 {
-                    "name": "",
-                    "id": "b1c557f8-9467-4206-a0d0-9ff24782eb4f",
+                    "name": "One Modifier",
+                    "id": "8d67a578-0b4b-43fb-bd38-6d8c2953f80a",
+                    "path": "OneModifier",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "PrimaryTouchPosition",
+                    "isComposite": true,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "modifier",
+                    "id": "7ba12813-889c-482f-8b8a-598635dcb591",
+                    "path": "<Touchscreen>/touch0/press",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "PrimaryTouchPosition",
+                    "isComposite": false,
+                    "isPartOfComposite": true
+                },
+                {
+                    "name": "binding",
+                    "id": "24aafbe8-3a17-409d-8c10-4f546cf99c75",
                     "path": "<Touchscreen>/touch0/position",
                     "interactions": "",
                     "processors": "",
                     "groups": ";Touch",
                     "action": "PrimaryTouchPosition",
                     "isComposite": false,
+                    "isPartOfComposite": true
+                },
+                {
+                    "name": "One Modifier",
+                    "id": "0d589d85-98d8-4d93-a724-50e90b22b328",
+                    "path": "OneModifier",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "SecondaryTouchPosition",
+                    "isComposite": true,
                     "isPartOfComposite": false
                 },
                 {
-                    "name": "",
-                    "id": "f99764fe-606f-44ba-b633-f98b1254280c",
+                    "name": "modifier",
+                    "id": "c4eacfd8-c61c-4f0e-ab76-fad8fbdb7050",
+                    "path": "<Touchscreen>/touch1/press",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "SecondaryTouchPosition",
+                    "isComposite": false,
+                    "isPartOfComposite": true
+                },
+                {
+                    "name": "binding",
+                    "id": "a257dd11-cfa7-4faa-9166-af1d9bb404d7",
                     "path": "<Touchscreen>/touch1/position",
                     "interactions": "",
                     "processors": "",
-                    "groups": ";Touch",
+                    "groups": "",
                     "action": "SecondaryTouchPosition",
+                    "isComposite": false,
+                    "isPartOfComposite": true
+                },
+                {
+                    "name": "",
+                    "id": "d45316bb-dff6-444a-a656-14b542cd16d7",
+                    "path": "<Touchscreen>/touch0/delta",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "PrimaryTouchDelta",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

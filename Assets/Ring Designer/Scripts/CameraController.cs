@@ -29,7 +29,7 @@ namespace RingDesigner
         public float InertiaDamping = 0.95f;     // Inertia decay.
 
         [Header("Zoom Settings (Using Distance)")]
-        public float ZoomSpeed = 1f;             // Touch zoom speed.
+        public float TouchZoomSpeed = 1f;        // Touch zoom speed.
         public float scrollZoomSpeed = 2f;       // Mouse scroll zoom speed.
         public float minDistance = 5f;
         public float maxDistance = 20f;
@@ -201,7 +201,7 @@ namespace RingDesigner
                     float currentPinchDistance = Vector2.Distance(primaryTouchPosition, secondaryTouchPosition);
                     float lastPinchDistance = Vector2.Distance(previousPrimaryTouchPosition, previousSecondaryTouchPosition);
                     float deltaDistance = currentPinchDistance - lastPinchDistance;
-                    targetDistance = Mathf.Clamp(targetDistance - deltaDistance * ZoomSpeed, minDistance, maxDistance);
+                    targetDistance = Mathf.Clamp(targetDistance - deltaDistance * TouchZoomSpeed, minDistance, maxDistance);
 
                     // --- Two-finger Pan ---
                     //Vector2 avgTouch = (primaryTouchPosition + secondaryTouchPosition) * 0.5f;
