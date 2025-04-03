@@ -98,6 +98,8 @@ namespace RingDesigner
             if (secondaryTouchPosition != Vector2.zero)
                 touchCount++;
 
+
+
             if (touchCount != 0)
                 ProcessTouch();
             else
@@ -173,13 +175,13 @@ namespace RingDesigner
             {
                 if (touchCount == 1)
                 {
-                    if (PrimaryTouchPosition.action.phase == InputActionPhase.Started)
+                    if (!isOrbitDragging)
                     {
                         isOrbitDragging = true;
                         lastOrbitPointer = primaryTouchPosition;
                         inertiaVelocity = Vector2.zero;
                     }
-                    else if (PrimaryTouchPosition.action.phase == InputActionPhase.Performed && isOrbitDragging)
+                    else if (isOrbitDragging)
                     {
                         Vector2 delta = primaryTouchPosition - lastOrbitPointer;
                         targetYaw += delta.x * Sensitivity * 0.5f;
