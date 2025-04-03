@@ -19,7 +19,6 @@ namespace RingDesigner
         public Transform target;
         public float distance = 10f;
         public float Sensitivity = 20f;          // Rotation sensitivity.
-        public float TouchSensitivity = 1f;
         public float SmoothTime = 0.1f;          // Smoothing time for orbit.
         [Range(-90f, 90f)]
         public float minPitch = -80f;
@@ -29,8 +28,8 @@ namespace RingDesigner
         public float InertiaDamping = 0.95f;     // Inertia decay.
 
         [Header("Zoom Settings (Using Distance)")]
-        public float TouchZoomSpeed = 1f;        // Touch zoom speed.
-        public float scrollZoomSpeed = 2f;       // Mouse scroll zoom speed.
+        public float TouchZoomSpeed = 0.1f;        // Touch zoom speed.
+        public float scrollZoomSpeed = 0.2f;       // Mouse scroll zoom speed.
         public float minDistance = 5f;
         public float maxDistance = 20f;
         public float distanceSmoothTime = 0.1f;  // Smoothing time for zoom/distance.
@@ -185,14 +184,14 @@ namespace RingDesigner
                         lastOrbitPointer = primaryTouchPosition;
                         inertiaVelocity = Vector2.zero;
                     }
-                    else if (isOrbitDragging)
+                    else
                     {
                         Vector2 delta = primaryTouchPosition - lastOrbitPointer;
-                        targetYaw += delta.x * TouchSensitivity * 0.01f;
-                        targetPitch -= delta.y * TouchSensitivity * 0.01f;
+                        targetYaw += delta.x * Sensitivity * 0.01f;
+                        targetPitch -= delta.y * Sensitivity * 0.01f;
                         targetPitch = Mathf.Clamp(targetPitch, minPitch, maxPitch);
                         lastOrbitPointer = primaryTouchPosition;
-                        inertiaVelocity = delta * (Sensitivity * 0.5f);
+                        inertiaVelocity = delta * (Sensitivity * 0.01f);
                     }
                 }
                 else if (touchCount >= 2)
@@ -237,8 +236,8 @@ namespace RingDesigner
                 }
 
                 // Smooth the orbit angles.
-                currentYaw = Mathf.SmoothDampAngle(currentYaw, targetYaw, ref rotationVelocity.x, SmoothTime);
-                currentPitch = Mathf.SmoothDampAngle(currentPitch, targetPitch, ref rotationVelocity.y, SmoothTime);
+                currentYaw = Mathf.SmoothDamp(currentYaw, targetYaw, ref rotationVelocity.x, SmoothTime);
+                currentPitch = Mathf.SmoothDamp(currentPitch, targetPitch, ref rotationVelocity.y, SmoothTime);
             }
 
             void UpdateCamera()
