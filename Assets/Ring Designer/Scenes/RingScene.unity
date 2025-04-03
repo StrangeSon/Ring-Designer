@@ -3162,8 +3162,8 @@ MonoBehaviour:
   minPitch: -80
   maxPitch: 80
   InertiaDamping: 0.95
-  TouchZoomSpeed: 0.1
-  scrollZoomSpeed: 0.2
+  TouchZoomSpeed: 1
+  scrollZoomSpeed: 1
   minDistance: 2.5
   maxDistance: 15
   distanceSmoothTime: 0.15

@@ -28,8 +28,8 @@ namespace RingDesigner
         public float InertiaDamping = 0.95f;     // Inertia decay.
 
         [Header("Zoom Settings (Using Distance)")]
-        public float TouchZoomSpeed = 0.1f;        // Touch zoom speed.
-        public float scrollZoomSpeed = 0.2f;       // Mouse scroll zoom speed.
+        public float TouchZoomSpeed = 0.1f;      // Touch zoom speed.
+        public float scrollZoomSpeed = 1f;       // Mouse scroll zoom speed.
         public float minDistance = 5f;
         public float maxDistance = 20f;
         public float distanceSmoothTime = 0.1f;  // Smoothing time for zoom/distance.
@@ -70,8 +70,9 @@ namespace RingDesigner
         private float currentDistance;
         private float distanceVelocity = 0f;
 
-        Vector2 previousPrimaryTouchPosition = Vector2.zero;
-        Vector2 previousSecondaryTouchPosition = Vector2.zero;
+        private bool inZoomAndPanMode;
+        private Vector2 previousPrimaryTouchPosition = Vector2.zero;
+        private Vector2 previousSecondaryTouchPosition = Vector2.zero;
 
         void Start()
         {
@@ -101,8 +102,6 @@ namespace RingDesigner
             if (secondaryTouchPosition != Vector2.zero)
                 touchCount++;
 
-
-
             if (touchCount != 0)
                 ProcessTouch();
             else
@@ -115,6 +114,8 @@ namespace RingDesigner
 
             void ProcessMouse()
             {
+                inZoomAndPanMode = false;
+
                 Vector2 pointerPos = Point.action.ReadValue<Vector2>();
                 Vector2 scrollValue = ScrollWheel.action.ReadValue<Vector2>();
                 bool leftClickIsPressed = Click.action.IsPressed();
@@ -176,7 +177,7 @@ namespace RingDesigner
 
             void ProcessTouch()
             {
-                if (touchCount == 1)
+                if (touchCount == 1 && !inZoomAndPanMode)
                 {
                     if (!isOrbitDragging)
                     {
@@ -194,13 +195,14 @@ namespace RingDesigner
                         inertiaVelocity = delta * (Sensitivity * 0.01f);
                     }
                 }
-                else if (touchCount >= 2)
+                else if (touchCount >= 2 || inZoomAndPanMode)
                 {
+                    inZoomAndPanMode = true;
                     // --- Pinch Zoom (update target distance) ---
                     float currentPinchDistance = Vector2.Distance(primaryTouchPosition, secondaryTouchPosition);
                     float lastPinchDistance = Vector2.Distance(previousPrimaryTouchPosition, previousSecondaryTouchPosition);
                     float deltaDistance = currentPinchDistance - lastPinchDistance;
-                    targetDistance = Mathf.Clamp(targetDistance - deltaDistance * TouchZoomSpeed, minDistance, maxDistance);
+                    targetDistance = Mathf.Clamp(targetDistance - deltaDistance * TouchZoomSpeed * 0.01f, minDistance, maxDistance);
 
                     // --- Two-finger Pan ---
                     //Vector2 avgTouch = (primaryTouchPosition + secondaryTouchPosition) * 0.5f;
@@ -219,9 +221,11 @@ namespace RingDesigner
                 }
                 else
                 {
+                    // I don't think this is ever called actually because process touch relies on touchcount to not be 0
                     isOrbitDragging = false;
                     isPanDragging = false;
                 }
+
             }
 
             void Orbit()
