@@ -4159,7 +4159,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Tribute - Men's (A11)
+  m_text: Class Ring - Men's (Y90)
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 22f3a36173ca73143bfae4c0386a1e1c, type: 2}
   m_sharedMaterial: {fileID: -9205398144247188224, guid: 22f3a36173ca73143bfae4c0386a1e1c, type: 2}

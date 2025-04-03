@@ -111,7 +111,6 @@ namespace RingDesigner
             StorePrevious();
 
 
-
             void ProcessMouse()
             {
                 inZoomAndPanMode = false;
@@ -200,27 +199,35 @@ namespace RingDesigner
                 }
                 else if (touchCount >= 2 || inZoomAndPanMode)
                 {
-                    inZoomAndPanMode = true;
-                    // --- Pinch Zoom (update target distance) ---
-                    float currentPinchDistance = Vector2.Distance(primaryTouchPosition, secondaryTouchPosition);
-                    float lastPinchDistance = Vector2.Distance(previousPrimaryTouchPosition, previousSecondaryTouchPosition);
-                    float deltaDistance = currentPinchDistance - lastPinchDistance;
-                    targetDistance = Mathf.Clamp(targetDistance - deltaDistance * TouchZoomSpeed * 0.01f, minDistance, maxDistance);
+                    if (!inZoomAndPanMode)
+                    {
+                        inZoomAndPanMode = true;
+                        // need to spend a frame getting previousSecondaryTouchPosition
+                    }
+                    else
+                    {
+                        // --- Pinch Zoom (update target distance) ---
+                        float currentPinchDistance = Vector2.Distance(primaryTouchPosition, secondaryTouchPosition);
+                        float lastPinchDistance = Vector2.Distance(previousPrimaryTouchPosition, previousSecondaryTouchPosition);
+                        float deltaDistance = currentPinchDistance - lastPinchDistance;
+                        targetDistance = Mathf.Clamp(targetDistance - deltaDistance * TouchZoomSpeed * 0.01f, minDistance, maxDistance);
 
-                    // --- Two-finger Pan ---
-                    //Vector2 avgTouch = (primaryTouchPosition + secondaryTouchPosition) * 0.5f;
-                    //if (!isPanDragging)
-                    //{
-                    //    isPanDragging = true;
-                    //    lastPanPointer = avgTouch;
-                    //}
-                    //else
-                    //{
-                    //    Vector2 panDelta = avgTouch - lastPanPointer;
-                    //    targetPan.x = Mathf.Clamp(targetPan.x - panDelta.x * panSpeed, panLimitMin.x, panLimitMax.x);
-                    //    targetPan.y = Mathf.Clamp(targetPan.y - panDelta.y * panSpeed, panLimitMin.y, panLimitMax.y);
-                    //    lastPanPointer = avgTouch;
-                    //}
+                        // --- Two-finger Pan ---
+                        //Vector2 avgTouch = (primaryTouchPosition + secondaryTouchPosition) * 0.5f;
+                        //if (!isPanDragging)
+                        //{
+                        //    isPanDragging = true;
+                        //    lastPanPointer = avgTouch;
+                        //}
+                        //else
+                        //{
+                        //    Vector2 panDelta = avgTouch - lastPanPointer;
+                        //    targetPan.x = Mathf.Clamp(targetPan.x - panDelta.x * panSpeed, panLimitMin.x, panLimitMax.x);
+                        //    targetPan.y = Mathf.Clamp(targetPan.y - panDelta.y * panSpeed, panLimitMin.y, panLimitMax.y);
+                        //    lastPanPointer = avgTouch;
+                        //}
+                    }
+
                 }
                 else
                 {
