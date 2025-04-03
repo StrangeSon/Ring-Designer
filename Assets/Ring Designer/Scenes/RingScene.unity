@@ -3153,6 +3153,8 @@ MonoBehaviour:
   MiddleClick: {fileID: -2185481485913320682, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   RightClick: {fileID: -4090225696740746782, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   ScrollWheel: {fileID: 6240969308177333660, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+  PrimaryTouchPosition: {fileID: 1295203389933822018, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+  SecondaryTouchPosition: {fileID: 4952087691327034855, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   target: {fileID: 355034110}
   distance: 10
   Sensitivity: 20
