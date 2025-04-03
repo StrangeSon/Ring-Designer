@@ -177,8 +177,11 @@ namespace RingDesigner
 
             void ProcessTouch()
             {
-                if (touchCount == 1 && !inZoomAndPanMode)
+                if (touchCount == 1)
                 {
+                    if (inZoomAndPanMode)
+                        return;
+
                     if (!isOrbitDragging)
                     {
                         isOrbitDragging = true;

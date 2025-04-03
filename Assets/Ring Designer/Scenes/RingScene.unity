@@ -3165,7 +3165,7 @@ MonoBehaviour:
   TouchZoomSpeed: 1
   scrollZoomSpeed: 1
   minDistance: 2.5
-  maxDistance: 15
+  maxDistance: 14
   distanceSmoothTime: 0.15
   panSpeed: 0.005
   panLimitMin: {x: -0.5, y: -0.5}
