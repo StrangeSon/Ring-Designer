@@ -74,17 +74,44 @@ namespace RingDesigner
         private Vector2 previousPrimaryTouchPosition = Vector2.zero;
         private Vector2 previousSecondaryTouchPosition = Vector2.zero;
 
+        private Vector3 initialEulerAngles;
+
         void Start()
         {
+            initialEulerAngles = transform.eulerAngles;
             if (target == null)
             {
                 Debug.LogError("Target not assigned!");
                 enabled = false;
                 return;
             }
+            Reinitialize();
+        }
+
+        public void Reinitialize()
+        {
+            targetYaw = default;
+            targetPitch = 20f;
+            currentYaw = default;
+            currentPitch = 20f;
+            inertiaVelocity = default;
+            rotationVelocity = default;
+            isOrbitDragging = default;
+            lastOrbitPointer = default;
+            targetPan = default;
+            currentPan = default;
+            panVelocity = default;
+            isPanDragging = default;
+            lastPanPointer = default;
+            targetDistance = default;
+            currentDistance = default;
+            distanceVelocity = default;
+            inZoomAndPanMode = default;
+            previousPrimaryTouchPosition = default;
+            previousSecondaryTouchPosition = default;
 
             // Initialize orbit from current camera rotation.
-            Vector3 euler = transform.eulerAngles;
+            Vector3 euler = initialEulerAngles;
             currentYaw = targetYaw = euler.y;
             currentPitch = targetPitch = euler.x;
 
