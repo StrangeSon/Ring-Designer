@@ -1,0 +1,99 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9f61ff81e7122924eb478258ec6fdadb, type: 3}
+  m_Name: Ring Char Mesh Map
+  m_EditorClassIdentifier: 
+  CharMeshMappings:
+  - character: 65
+    meshPrefab: {fileID: 2894476360537694669, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 66
+    meshPrefab: {fileID: -907994703797819552, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 67
+    meshPrefab: {fileID: 5097984664202491809, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 68
+    meshPrefab: {fileID: -6621177644281216983, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 69
+    meshPrefab: {fileID: -8970095241330140159, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 70
+    meshPrefab: {fileID: -5767856536247583739, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 71
+    meshPrefab: {fileID: -1572905539092347760, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 72
+    meshPrefab: {fileID: -5865204887889697370, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 73
+    meshPrefab: {fileID: -2433577322176370823, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 74
+    meshPrefab: {fileID: 2048923250232867430, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 75
+    meshPrefab: {fileID: 8946219366662899751, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 76
+    meshPrefab: {fileID: -8211720957969719252, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 77
+    meshPrefab: {fileID: -4748051456795032713, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 78
+    meshPrefab: {fileID: -7486582051164532613, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 79
+    meshPrefab: {fileID: 1408458721824010612, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 80
+    meshPrefab: {fileID: -5690335142949830833, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 81
+    meshPrefab: {fileID: -8014521093110976141, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 82
+    meshPrefab: {fileID: 2597482819826571482, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 83
+    meshPrefab: {fileID: -2891222462210742005, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 84
+    meshPrefab: {fileID: -2698194460045413975, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 85
+    meshPrefab: {fileID: 948230294674892479, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 86
+    meshPrefab: {fileID: 2632262512983269558, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 87
+    meshPrefab: {fileID: 1293713811447867369, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 88
+    meshPrefab: {fileID: -5005490918245997597, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 89
+    meshPrefab: {fileID: 8373669533943326743, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 90
+    meshPrefab: {fileID: -1019849202092685158, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 49
+    meshPrefab: {fileID: -3973107660126017756, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 50
+    meshPrefab: {fileID: 6471496338278676438, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 51
+    meshPrefab: {fileID: -3556817346404478780, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 52
+    meshPrefab: {fileID: 2238249416642749085, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 53
+    meshPrefab: {fileID: 2909334989756356583, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 54
+    meshPrefab: {fileID: -1840680963563420374, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 55
+    meshPrefab: {fileID: 6117044130540447792, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 56
+    meshPrefab: {fileID: 3493207879455990265, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 57
+    meshPrefab: {fileID: 8376888327017635834, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 48
+    meshPrefab: {fileID: -7118718547738887145, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 32
+    meshPrefab: {fileID: 5975361641200999208, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 44
+    meshPrefab: {fileID: -9009576658438596588, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 46
+    meshPrefab: {fileID: 496656792930019540, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 45
+    meshPrefab: {fileID: -1702075046688864737, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 39
+    meshPrefab: {fileID: -8541422451339544475, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}
+  - character: 126
+    meshPrefab: {fileID: 1168901836717210443, guid: a0ca6ab5e169a114ca70b0dd9b1468b8, type: 3}

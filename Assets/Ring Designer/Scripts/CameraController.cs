@@ -1,6 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
-using Unity.Cinemachine; // Ensure you have the Cinemachine namespace
+using Unity.Cinemachine;
 
 namespace RingDesigner
 {
@@ -17,7 +17,8 @@ namespace RingDesigner
 
         [Header("Target and Orbit Settings")]
         public Transform target;
-        public float distance = 10f;
+        public float Distance = 5f;
+        public Vector3 InitialEulerAngles;
         public float Sensitivity = 20f;          // Rotation sensitivity.
         public float SmoothTime = 0.1f;          // Smoothing time for orbit.
         [Range(-90f, 90f)]
@@ -25,7 +26,7 @@ namespace RingDesigner
         [Range(-90f, 90f)]
         public float maxPitch = 80f;
         [Range(0.85f, 0.99f)]
-        public float InertiaDamping = 0.95f;     // Inertia decay.
+        public float InertiaDamping = 0.95f;
 
         [Header("Zoom Settings (Using Distance)")]
         public float TouchZoomSpeed = 0.1f;      // Touch zoom speed.
@@ -74,11 +75,9 @@ namespace RingDesigner
         private Vector2 previousPrimaryTouchPosition = Vector2.zero;
         private Vector2 previousSecondaryTouchPosition = Vector2.zero;
 
-        private Vector3 initialEulerAngles;
 
         void Start()
         {
-            initialEulerAngles = transform.eulerAngles;
             if (target == null)
             {
                 Debug.LogError("Target not assigned!");
@@ -90,10 +89,10 @@ namespace RingDesigner
 
         public void Reinitialize()
         {
-            targetYaw = default;
-            targetPitch = 20f;
-            currentYaw = default;
-            currentPitch = 20f;
+            targetYaw = 49f;
+            targetPitch = 9.5f;
+            currentYaw = 49f;
+            currentPitch = 9.5f;
             inertiaVelocity = default;
             rotationVelocity = default;
             isOrbitDragging = default;
@@ -111,12 +110,12 @@ namespace RingDesigner
             previousSecondaryTouchPosition = default;
 
             // Initialize orbit from current camera rotation.
-            Vector3 euler = initialEulerAngles;
+            Vector3 euler = InitialEulerAngles;
             currentYaw = targetYaw = euler.y;
             currentPitch = targetPitch = euler.x;
 
             // Initialize distance from the starting value.
-            targetDistance = currentDistance = distance;
+            targetDistance = currentDistance = Distance;
         }
 
         void Update()
@@ -136,6 +135,7 @@ namespace RingDesigner
             Orbit();
             UpdateCamera();
             StorePrevious();
+            // Debug.Log($"Yaw: {currentYaw} Pitch {currentPitch} distance {currentDistance}");
 
 
             void ProcessMouse()
