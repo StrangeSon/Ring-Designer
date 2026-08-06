@@ -106,7 +106,9 @@ namespace HTraceAO.Scripts.Globals
 #if UNITY_2023_3_OR_NEWER
 				return GraphicsSettings.GetRenderPipelineSettings<RenderGraphSettings>().enableRenderCompatibilityMode == false;
 #endif
+#pragma warning disable CS0162
 				return false;
+#pragma warning restore CS0162
 			}
 		}
 
@@ -130,7 +132,7 @@ namespace HTraceAO.Scripts.Globals
 			{
 				if (emptyTexture == null)
 				{
-					emptyTexture                   = new RenderTexture(1, 1, 0);
+					emptyTexture                   = new RenderTexture(4, 4, 0);
 					emptyTexture.enableRandomWrite = true;
 					emptyTexture.dimension         = TextureDimension.Tex2D;
 					emptyTexture.format            = RenderTextureFormat.ARGBFloat;

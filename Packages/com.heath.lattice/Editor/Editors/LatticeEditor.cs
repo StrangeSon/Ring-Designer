@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using UnityEditor;
 using UnityEditor.Search;
 using UnityEngine;
@@ -35,6 +36,77 @@ namespace Lattice.Editor
 			LatticeDrawer.Draw(lattice);
 		}
 
+		/// <summary>
+		/// Creates a new Lattice in the scene
+		/// </summary>
+		[MenuItem("GameObject/Effects/Lattice", false, 4040)]
+		private static void CreateLattice(MenuCommand menuCommand)
+		{
+			// Don't run if multiple selected objects
+			if ((menuCommand.context != null) && (menuCommand.context != Selection.activeGameObject))
+				return;
+
+			GameObject gameObject = new("Lattice");
+			Undo.RegisterCreatedObjectUndo(gameObject, "Create Lattice");
+
+			// If just one selected, add as a child
+			if (Selection.gameObjects.Length == 1)
+			{
+				Undo.SetTransformParent(gameObject.transform, Selection.activeTransform, "Create Lattice");
+				gameObject.transform.localPosition = Vector3.zero;
+				gameObject.transform.localRotation = Quaternion.identity;
+				gameObject.transform.localScale = Vector3.one;
+			}
+			// Otherwise root object in centre of screen
+			else if (SceneView.lastActiveSceneView != null)
+			{
+				gameObject.transform.localPosition = SceneView.lastActiveSceneView.pivot;
+			}
+
+			// Setup the lattice
+			Undo.RegisterCompleteObjectUndo(gameObject, "Create Lattice");
+			Lattice lattice = Undo.AddComponent<Lattice>(gameObject);
+			lattice.Setup(lattice.Resolution);
+
+			void AddLatticeToList(List<LatticeItem> items)
+			{
+				LatticeItem item = new() { Lattice = lattice };
+
+				if (items.Count > 0)
+				{
+					LatticeItem previous = items[^1];
+					item.Interpolation = previous.Interpolation;
+
+					if (previous.Lattice == null)
+					{
+						items[^1] = item;
+						return;
+					}
+				}
+
+				items.Add(item);
+			}
+
+			// Add lattice to any modifiers selected
+			for (int i = 0; i < Selection.gameObjects.Length; i++)
+			{
+				if (Selection.gameObjects[i].TryGetComponent(out LatticeModifierBase modifier))
+				{
+					Undo.RegisterCompleteObjectUndo(modifier, "Create Lattice");
+					AddLatticeToList(modifier.Lattices);
+				}
+				if (Selection.gameObjects[i].TryGetComponent(out TransformLatticeModifier transformModifier))
+				{
+					Undo.RegisterCompleteObjectUndo(transformModifier, "Create Lattice");
+					AddLatticeToList(transformModifier.Lattices);
+				}
+			}
+
+			Undo.SetCurrentGroupName("Create Lattice");
+
+			Selection.activeTransform = gameObject.transform;
+		}
+
 		#region Editor
 
 		public override void OnInspectorGUI()
@@ -42,6 +114,13 @@ namespace Lattice.Editor
 			Vector3Int initialResolution = Lattice.Resolution;
 
 			base.OnInspectorGUI();
+
+			using (var disabled = new EditorGUI.DisabledGroupScope(true))
+			{
+				if (_selectedHandles.Count == 0) EditorGUILayout.LabelField("Selected: None");
+				else if (_selectedHandles.Count == 1) EditorGUILayout.LabelField($"Selected: {_selectedHandles.Handles[0]}");
+				else EditorGUILayout.LabelField($"Selected: {_selectedHandles.Count} Total");
+			}
 
 			if (Lattice.Resolution != initialResolution)
 			{
@@ -58,7 +137,9 @@ namespace Lattice.Editor
 			_latticeDrawer.Draw();
 
 			// If other objects also selected return early
-			if (Selection.count > 1) return;
+			if (!ShouldShowEditor()) return;
+
+			UpdateSelection();
 
 			// Draw handles
 			_handleDrawer.Draw(!_selecting);
@@ -86,7 +167,7 @@ namespace Lattice.Editor
 			Undo.undoRedoPerformed += ResetGizmos;
 			Selection.selectionChanged += OnSelectionChanged;
 
-			Tools.hidden = Selection.count == 1;
+			OnSelectionChanged();
 		}
 
 		private void OnDisable()
@@ -111,7 +192,7 @@ namespace Lattice.Editor
 			if (_selectedHandles.Count > 0)
 			{
 				if (_frameBounds) return _selectedHandles.GetBounds();
-				else return new(_selectedHandles.GetPivot(), Vector3.one);
+				else return new(_selectedHandles.GetPivot(Tools.pivotMode), Vector3.one);
 			}
 			else
 			{
@@ -132,6 +213,7 @@ namespace Lattice.Editor
 		private void ResetFocus()
 		{
 			_frameBounds = false;
+			Repaint();
 		}
 
 		private void ResetGizmos()
@@ -142,12 +224,35 @@ namespace Lattice.Editor
 
 		private void OnSelectionChanged()
 		{
-			Tools.hidden = Selection.count == 1;
+			Tools.hidden = ShouldShowEditor();
+		}
+
+		private bool ShouldShowEditor()
+		{
+			return Selection.count == 1;
+		}
+
+		private void UpdateSelection()
+		{
+			if (LatticeHandleEditor.Selected.Length > 0)
+			{
+				Undo.RecordObject(_selectedHandles, "Select Lattice Handles");
+				_selectedHandles.Clear();
+				_selectedHandles.AddRange(LatticeHandleEditor.Selected.Select(h => Lattice.GetHandleCoords(h)));
+				LatticeHandleEditor.Selected = System.Array.Empty<LatticeHandle>();
+			}
 		}
 
 		#endregion
 
 		#region Mouse Events
+
+		private static readonly Vector3Int[] Directions = new[]
+		{
+			Vector3Int.right, Vector3Int.left,
+			Vector3Int.up, Vector3Int.down,
+			Vector3Int.forward, Vector3Int.back,
+		};
 
 		private static readonly Color SelectionFaceColor = new(0.1f, 0.4f, 1f, 0.05f);
 		private static readonly Color SelectionOutlineColor = new(0.1f, 0.4f, 1f, 0.2f);
@@ -267,6 +372,11 @@ namespace Lattice.Editor
 			}
 		}
 
+		private Vector3Int ClampHandle(Vector3Int handle)
+		{
+			return Vector3Int.Min(Vector3Int.Max(handle, Vector3Int.zero), Lattice.Resolution - Vector3Int.one);
+		}
+
 		private void ShowContextMenu()
 		{
 			GenericMenu menu = new();
@@ -277,7 +387,58 @@ namespace Lattice.Editor
 				LatticeSettings.SelectionFalloffEnabled = !LatticeSettings.SelectionFalloffEnabled;
 			});
 
+			// Selection relative gizmos
+			menu.AddItem(new GUIContent("Use Selection Relative Gizmos"), LatticeSettings.SelectionRelativeGizmos, () =>
+			{
+				LatticeSettings.SelectionRelativeGizmos = !LatticeSettings.SelectionRelativeGizmos;
+			});
+
 			menu.AddSeparator("");
+
+			// Expand and shrink
+			if (_selectedHandles.Count == 0)
+			{
+				menu.AddDisabledItem(new GUIContent("Expand Selection"));
+				menu.AddDisabledItem(new GUIContent("Shrink Selection"));
+			}
+			else
+			{
+				menu.AddItem(new GUIContent("Expand Selection"), false, () =>
+				{
+					Undo.RecordObject(_selectedHandles, "Expand Selection");
+					List<Vector3Int> handlesToAdd = new();
+					foreach (Vector3Int handle in Lattice.GetHandles())
+					{
+						if (Directions.Any(direction => _selectedHandles.Contains(ClampHandle(handle + direction))))
+						{
+							handlesToAdd.Add(handle);
+						}
+					}
+
+					foreach (Vector3Int handle in handlesToAdd)
+					{
+						_selectedHandles.Add(handle);
+					}
+				});
+
+				menu.AddItem(new GUIContent("Shrink Selection"), false, () =>
+				{
+					Undo.RecordObject(_selectedHandles, "Shrink Selection");
+					List<Vector3Int> handlesToRemove = new();
+					foreach (Vector3Int handle in Lattice.GetHandles())
+					{
+						if (!Directions.All(direction => _selectedHandles.Contains(ClampHandle(handle + direction))))
+						{
+							handlesToRemove.Add(handle);
+						}
+					}
+
+					foreach (Vector3Int handle in handlesToRemove)
+					{
+						_selectedHandles.Remove(handle);
+					}
+				});
+			}
 
 			// Invert selection
 			menu.AddItem(new GUIContent("Invert Selection"), false, () =>
@@ -289,6 +450,8 @@ namespace Lattice.Editor
 					else _selectedHandles.Add(handle);
 				}
 			});
+
+			menu.AddSeparator("");
 
 			// Select all handles
 			menu.AddItem(new GUIContent("Select All Handles"), false, () =>
@@ -319,7 +482,11 @@ namespace Lattice.Editor
 			menu.AddSeparator("");
 
 			// Reset selected handles
-			if (_selectedHandles.Count > 0)
+			if (_selectedHandles.Count == 0)
+			{
+				menu.AddDisabledItem(new GUIContent("Reset Selected Handles"));
+			}
+			else
 			{
 				menu.AddItem(new GUIContent("Reset Selected Handles"), false, () =>
 				{
@@ -331,10 +498,6 @@ namespace Lattice.Editor
 					_handleGizmos.Reset();
 					EditorApplication.QueuePlayerLoopUpdate();
 				});
-			}
-			else
-			{
-				menu.AddDisabledItem(new GUIContent("Reset Selected Handles"));
 			}
 
 			// Reset all handles
@@ -351,10 +514,31 @@ namespace Lattice.Editor
 
 			menu.AddSeparator("");
 
-			// Copy handle indicies
-			if (_selectedHandles.Count > 0)
+			// Copy selected index
+			if (_selectedHandles.Count != 1)
 			{
-				menu.AddItem(new GUIContent("Copy Selected Indices"), false, () =>
+				menu.AddDisabledItem(new GUIContent("Copy Selected Index"));
+
+			}
+			else
+			{
+				Vector3Int handle = _selectedHandles.Handles[0];
+				menu.AddItem(new GUIContent($"Copy Selected Index"), false, () =>
+				{
+					EditorGUIUtility.systemCopyBuffer = $"Vector3({handle.x},{handle.y},{handle.z})";
+					Debug.Log($"Copied selected handle index: {handle}\n" +
+						"Can be pasted into a Vector3 or Vector3Int field in the inspector.");
+				});
+			}
+
+			// Copy selected indices
+			if (_selectedHandles.Count == 0)
+			{
+				menu.AddDisabledItem(new GUIContent($"Copy Selected Indices"));
+			}
+			else
+			{
+				menu.AddItem(new GUIContent($"Copy Selected Indices"), false, () =>
 				{
 					int count = _selectedHandles.Count;
 
@@ -364,6 +548,10 @@ namespace Lattice.Editor
 						$"\"val\":{count}" +
 					$"}},";
 
+					string debug = $"Copied {count} selected handle indices.\n" +
+						"Can be pasted into a Vector3 or Vector3Int list in the inspector. " +
+						"The following were selected:\n";
+
 					foreach (Vector3Int handle in _selectedHandles.Handles)
 					{
 						values += $"{{" +
@@ -371,9 +559,12 @@ namespace Lattice.Editor
 							$"\"type\":21," +
 							$"\"val\":\"Vector3({handle.x},{handle.y},{handle.z})\"" +
 						$"}},";
+
+						debug += $"{handle}\n";
 					}
 
 					values = values[..^1];
+					debug = debug[..^1];
 
 					string property = $"GenericPropertyJSON:{{" +
 						$"\"name\":\"_indices\"," +
@@ -392,11 +583,8 @@ namespace Lattice.Editor
 					$"}}";
 
 					EditorGUIUtility.systemCopyBuffer = property;
+					Debug.Log(debug);
 				});
-			}
-			else
-			{
-				menu.AddDisabledItem(new GUIContent("Copy Selected Indices"));
 			}
 
 			menu.AddSeparator("");

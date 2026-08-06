@@ -33,6 +33,8 @@ namespace Lattice.Editor
 		[SerializeField] internal AnimationCurve _selectionFalloffCurve;
 		[SerializeField] internal Color _selectionFalloffColor;
 
+		[SerializeField] internal bool _handleRelativeGizmos;
+
 		public static LatticeSettings Instance
 		{
 			get
@@ -60,6 +62,8 @@ namespace Lattice.Editor
 		public static float SelectionFalloffRadius { get => Instance._selectionFalloffRadius; set => Instance._selectionFalloffRadius = Mathf.Clamp(value, 0.33f, 10f); }
 		public static AnimationCurve SelectionFalloffCurve => Instance._selectionFalloffCurve;
 		public static Color SelectionFalloffColor => Instance._selectionFalloffColor;
+
+		public static bool SelectionRelativeGizmos { get => Instance._handleRelativeGizmos; set => Instance._handleRelativeGizmos = value; }
 
 		public static void Save()
 		{
@@ -94,7 +98,7 @@ namespace Lattice.Editor
 		public void Reset()
 		{
 			_lineColor = Color.black;
-			_lineThickness = 3f;
+			_lineThickness = 2f;
 			_lineInFrontOpacity = 2f;
 			_lineBehindOpacity = 0.5f;
 
@@ -129,6 +133,8 @@ namespace Lattice.Editor
 			_selectionFalloffRadius = 1.0f;
 			_selectionFalloffCurve = AnimationCurve.EaseInOut(0, 1, 1, 0);
 			_selectionFalloffColor = new Color(1f, 1f, 1f, 0.5f);
+
+			_handleRelativeGizmos = false;
 		}
 	}
 }

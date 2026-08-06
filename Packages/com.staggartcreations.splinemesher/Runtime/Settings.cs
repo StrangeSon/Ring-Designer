@@ -15,6 +15,12 @@ namespace sc.modeling.splines.runtime
             Mesh
         }
 
+        public enum InterpolationType
+        {
+            Linear,
+            EaseInEaseOut,
+        }
+
         [Serializable]
         public class Collision
         {
@@ -73,6 +79,8 @@ namespace sc.modeling.splines.runtime
             public Vector3 scale = Vector3.one;
             #if SPLINES
             public PathIndexUnit scalePathIndexUnit = PathIndexUnit.Distance;
+            [Tooltip("Defines how the data is interpolated from one data point, to the other")]
+            public InterpolationType scaleInterpolation = InterpolationType.Linear;
             #endif
             
             [UnityEngine.Serialization.FormerlySerializedAs("ignoreRoll")]
@@ -130,6 +138,17 @@ namespace sc.modeling.splines.runtime
         {
             [Tooltip("Project the spline curve into the geometry underneath it. Relies on physics raycasts.")]
             public bool enable;
+            
+            #if SPLINES
+            public PathIndexUnit pathIndexUnit = PathIndexUnit.Distance;
+            #endif
+
+            public enum Direction
+            {
+                StraightDown,
+                SplineNormal
+            }
+            public Direction direction = Direction.StraightDown;
 
             [Tooltip("A ray is shot this high above every vertex, and reach this much units below it." +
                      "\n\n" +
@@ -164,6 +183,9 @@ namespace sc.modeling.splines.runtime
                      "This data may be used in shaders for tailored effects, such as animations.")]
             public bool storeGradientsInUV = true;
             [Tooltip("Multiplier for the pack-margin value. A value of 1 equates to 1 texel")]
+            
+            [Space]
+            
             [Min(0.01f)]
             public float lightmapUVMarginMultiplier = 1f;
             [Range(15f, 90f)]

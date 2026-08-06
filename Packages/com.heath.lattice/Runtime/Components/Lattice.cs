@@ -1,5 +1,3 @@
-using System;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Animations;
@@ -14,17 +12,17 @@ namespace Lattice
 	{
 		#region Constants
 
-		private const string ResolutionTooltip = 
+		private const string ResolutionTooltip =
 			"The number of handles along each axis.";
 
 		#endregion
 
 		#region Fields
 
-		[SerializeField, NotKeyable, Tooltip(ResolutionTooltip)] 
+		[SerializeField, NotKeyable, Tooltip(ResolutionTooltip)]
 		private Vector3Int _resolution = new(2, 2, 2);
 
-		[SerializeField, HideInInspector] 
+		[SerializeField, HideInInspector]
 		private List<LatticeHandle> _handles = new();
 
 		private readonly List<Vector3> _offsets = new();
@@ -165,23 +163,23 @@ namespace Lattice
 				GameObject child = existingHandles[i].gameObject;
 
 				// Don't delete if it belongs to a child lattice
-				if (child.transform.parent != transform) 
+				if (child.transform.parent != transform)
 					continue;
 
-				if (Application.isPlaying)
+#if UNITY_EDITOR
+				if (!Application.isPlaying)
 				{
-					Destroy(child);
+					UnityEditor.Undo.DestroyObjectImmediate(child);
 				}
 				else
-				{
-#if UNITY_EDITOR
-					UnityEditor.Undo.DestroyObjectImmediate(child);
 #endif
+				{
+					Destroy(child);
 				}
 			}
 
 #if UNITY_EDITOR
-			UnityEditor.Undo.RecordObject(this, "Setup");
+			if (!Application.isPlaying) UnityEditor.Undo.RecordObject(this, "Setup Lattice");
 #endif
 			// Update resolution
 			_resolution = resolution;
@@ -201,13 +199,13 @@ namespace Lattice
 						LatticeHandle handle = childObject.AddComponent<LatticeHandle>();
 						_handles.Add(handle);
 #if UNITY_EDITOR
-						UnityEditor.Undo.RegisterCreatedObjectUndo(childObject, "Create Handle");
+						if (!Application.isPlaying) UnityEditor.Undo.RegisterCreatedObjectUndo(childObject, "Setup Lattice");
 #endif
 					}
 				}
 			}
 #if UNITY_EDITOR
-			UnityEditor.Undo.RegisterCompleteObjectUndo(this, "Setup");
+			if (!Application.isPlaying) UnityEditor.Undo.RegisterCompleteObjectUndo(this, "Setup Lattice");
 #endif
 		}
 
@@ -225,6 +223,17 @@ namespace Lattice
 		/// <inheritdoc cref="GetHandle(int, int, int)"/>
 		internal LatticeHandle GetHandle(Vector3Int coords) => GetHandle(coords.x, coords.y, coords.z);
 
+		/// <summary>
+		/// Gets the 3d handle index of a handle component.
+		/// </summary>
+		internal Vector3Int GetHandleCoords(LatticeHandle handle)
+		{
+			int index = _handles.IndexOf(handle);
+			if (index == -1) return Vector3Int.zero;
+
+			return GetCoords(index);
+		}
+
 		#endregion
 
 		#region Private Methods
@@ -235,6 +244,18 @@ namespace Lattice
 		private int GetIndex(int x, int y, int z)
 		{
 			return x + (_resolution.x * y) + (_resolution.x * _resolution.y * z);
+		}
+
+		/// <summary>
+		/// Gets the 3d handle index from an array index.
+		/// </summary>
+		private Vector3Int GetCoords(int index)
+		{
+			return new Vector3Int(
+				index % _resolution.x,
+				(index / _resolution.x) % _resolution.y,
+				(index / (_resolution.x * _resolution.y)) % _resolution.z
+			);
 		}
 
 		/// <summary>
@@ -256,7 +277,7 @@ namespace Lattice
 
 		#region Unity Methods
 
-		private void Awake()
+		private void Start()
 		{
 			if (_handles.Count != _resolution.x * _resolution.y * _resolution.z)
 			{

@@ -25,10 +25,20 @@ namespace HTraceAO.Scripts.Passes.URP
 		const string _ObjectMotionVectorsDepthURP    = "_ObjectMotionVectorsDepthURP";
 		const string _CustomCameraMotionVectorsURP_0 = "_CustomCameraMotionVectorsURP_0";
 		const string _CustomCameraMotionVectorsURP_1 = "_CustomCameraMotionVectorsURP_1";
+
+		private static readonly int _ObjectMotionVectorsColor = Shader.PropertyToID("_ObjectMotionVectors");
+		private static readonly int _ObjectMotionVectorsDepth = Shader.PropertyToID("_ObjectMotionVectorsDepth");
+		private static readonly int _BiasOffset               = Shader.PropertyToID("_BiasOffset");
 		
-		private static readonly int ObjectMotionVectorsColor      = Shader.PropertyToID("_ObjectMotionVectors");
-		private static readonly int ObjectMotionVectorsDepth = Shader.PropertyToID("_ObjectMotionVectorsDepth");
-		private static readonly int BiasOffset               = Shader.PropertyToID("_BiasOffset");
+		private static readonly ShaderTagId[] MotionVectorsShaderTags
+#if UNITY_2023_1_OR_NEWER
+			= {new ShaderTagId("MotionVectors")};
+#else
+			= {new ShaderTagId("UniversalForward"), new ShaderTagId("UniversalForwardOnly"), new ShaderTagId("LightweightForward"), new ShaderTagId("SRPDefaultUnlit"), new ShaderTagId("Meta")};
+#endif
+
+		private static readonly RenderTargetIdentifier[] MotionVectorsMRT_Objects = new RenderTargetIdentifier[2];
+		private static readonly RenderTargetIdentifier[] MotionVectorsMRT_Camera  = new RenderTargetIdentifier[2];
 
 		// Textures
 		internal static RTHandle[] CustomCameraMotionVectorsURP = new RTHandle[2];
@@ -36,17 +46,29 @@ namespace HTraceAO.Scripts.Passes.URP
 		internal static RTHandle   ObjectMotionVectorsDepthURP;
 		
 		// Materials
-		private static Material CameraMotionVectorsMaterial_URP;
+		private static Material MotionVectorsMaterial_URP;
 
+		// Profiling Samplers
+		private static readonly ProfilingSampler ObjectMVProfilingSampler = new ProfilingSampler(HNames.HTRACE_OBJECTS_MV_PASS_NAME);
+		private static readonly ProfilingSampler CameraMVProfilingSampler = new ProfilingSampler(HNames.HTRACE_CAMERA_MV_PASS_NAME);
+
+#if UNITY_2023_3_OR_NEWER
+		// Render State Block for RenderGraph
+		private static RenderStateBlock forwardGBufferRenderStateBlock = new RenderStateBlock(RenderStateMask.Depth)
+		{
+			depthState = new DepthState(false, CompareFunction.LessEqual) // Probably CompareFunction.Less ?
+		};
+#endif
 		
 		#region --------------------------- Non Render Graph ---------------------------
-		
+
+#if !UNITY_6000_4_OR_NEWER
 		private        ScriptableRenderer _renderer;
 		private static int _historyCameraIndex;
 
 		protected internal void Initialize(ScriptableRenderer renderer)
 		{
-			_renderer    = renderer;
+			_renderer  = renderer;
 		}
 
 #if UNITY_2023_3_OR_NEWER
@@ -54,7 +76,35 @@ namespace HTraceAO.Scripts.Passes.URP
 #endif
 		public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
 		{
-			SetupShared(renderingData.cameraData.camera, renderingData.cameraData.renderScale, renderingData.cameraData.cameraTargetDescriptor);
+			Setup(renderingData.cameraData.camera, renderingData.cameraData.renderScale, renderingData.cameraData.cameraTargetDescriptor);
+		}
+
+		private static void Setup(Camera camera, float renderScale, RenderTextureDescriptor desc)
+		{
+			if (MotionVectorsMaterial_URP == null) MotionVectorsMaterial_URP = new Material(Shader.Find($"Hidden/{HNames.ASSET_NAME}/MotionVectorsURP"));
+
+			int width  = (int)(camera.scaledPixelWidth * renderScale);
+			int height = (int)(camera.scaledPixelHeight * renderScale);
+
+			if (desc.width != width || desc.height != height)
+				desc = new RenderTextureDescriptor(width, height);
+
+			desc.depthBufferBits    = 0;
+			desc.stencilFormat      = GraphicsFormat.None;
+			desc.depthStencilFormat = GraphicsFormat.None;
+			desc.msaaSamples        = 1;
+			desc.bindMS             = false;
+			desc.enableRandomWrite  = true;
+			
+			RenderTextureDescriptor depthDesc = desc;
+			depthDesc.depthBufferBits   = 32;
+			depthDesc.enableRandomWrite = false;
+			depthDesc.colorFormat       = RenderTextureFormat.Depth;
+			
+			ExtensionsURP.ReAllocateIfNeeded(_CustomCameraMotionVectorsURP_0, ref CustomCameraMotionVectorsURP[0], ref desc, graphicsFormat: GraphicsFormat.R16G16_SFloat);
+			ExtensionsURP.ReAllocateIfNeeded(_CustomCameraMotionVectorsURP_1, ref CustomCameraMotionVectorsURP[1], ref desc, graphicsFormat: GraphicsFormat.R8_SNorm);
+			ExtensionsURP.ReAllocateIfNeeded(_ObjectMotionVectorsColorURP, ref ObjectMotionVectorsColorURP, ref desc, graphicsFormat: GraphicsFormat.R16G16_SFloat);
+			ExtensionsURP.ReAllocateIfNeeded(_ObjectMotionVectorsDepthURP, ref ObjectMotionVectorsDepthURP, ref depthDesc);
 		}
 		
 #if UNITY_2023_3_OR_NEWER
@@ -77,7 +127,6 @@ namespace HTraceAO.Scripts.Passes.URP
 			
 			Camera camera = renderingData.cameraData.camera;
 			
-
 			RenderMotionVectorsNonRenderGraph(cmd, camera, ref renderingData, ref context);
 			
 			context.ExecuteCommandBuffer(cmd);
@@ -100,25 +149,16 @@ namespace HTraceAO.Scripts.Passes.URP
 				// We'll write not only to our own Color, but also to our own Depth target to use it later (in Camera MV) to compose per-object mv
 				CoreUtils.SetRenderTarget(cmd, ObjectMotionVectorsColorURP.rt, ObjectMotionVectorsDepthURP.rt);
 #else
-			// Prior to 2023 camera motion vectors are rendered directly on objects, so we write to both motion mask and motion vectors via MRT
-			RenderTargetIdentifier[] motionVectorsMRT = { CustomCameraMotionVectorsURP[0].rt, CustomCameraMotionVectorsURP[1].rt,};
-			CoreUtils.SetRenderTarget(cmd, motionVectorsMRT, ObjectMotionVectorsDepthURP.rt);
+				// Prior to 2023 camera motion vectors are rendered directly on objects, so we write to both motion mask and motion vectors via MRT
+				motionVectorsMRT_Objects[0] = CustomCameraMotionVectorsURP[0].rt;
+				motionVectorsMRT_Objects[1] = CustomCameraMotionVectorsURP[1].rt;
+				CoreUtils.SetRenderTarget(cmd, motionVectorsMRT_Objects, ObjectMotionVectorsDepthURP.rt);
 
 #endif // UNITY_2023_1_OR_NEWER
 
 				CullingResults cullingResults = renderingData.cullResults;
-
-				ShaderTagId[] tags
-#if UNITY_2023_1_OR_NEWER
-					= {new ShaderTagId("MotionVectors")};
-#else
-				= {new ShaderTagId("Meta")};
-				// If somethingis wrong with our custom shader we can always use the standard one instead
-				// Material ObjectMotionVectorsMaterial = new Material(Shader.Find("Hidden/Universal Render Pipeline/ObjectMotionVectors"));
-				Material ObjectMotionVectorsMaterial = new Material(Shader.Find($"Hidden/{HNames.ASSET_NAME}/ObjectMotionVectorsURP"));
-#endif // UNITY_2023_1_OR_NEWER
-
-				var renderList = new UnityEngine.Rendering.RendererUtils.RendererListDesc(tags, cullingResults, camera)
+				
+				var renderList = new UnityEngine.Rendering.RendererUtils.RendererListDesc(MotionVectorsShaderTags, cullingResults, camera)
 				{
 					rendererConfiguration = PerObjectData.MotionVectors,
 					renderQueueRange      = RenderQueueRange.opaque,
@@ -126,13 +166,19 @@ namespace HTraceAO.Scripts.Passes.URP
 					layerMask             = camera.cullingMask,
 					overrideMaterial
 #if UNITY_2023_1_OR_NEWER
-						= null,
+					= null,
 #else
-					= ObjectMotionVectorsMaterial,
+					= MotionVectorsMaterial_URP,
+					overrideMaterialPassIndex = 1,
+					// If somethingis wrong with our custom shader we can always use the standard one (and ShaderPass = 0) instead
+					// Material ObjectMotionVectorsMaterial = new Material(Shader.Find("Hidden/Universal Render Pipeline/ObjectMotionVectors"));
+					// overrideMaterialPassIndex = 0,
 #endif //UNITY_2023_1_OR_NEWER
 				};
 
+#pragma warning disable CS0618
 				CoreUtils.DrawRendererList(context, cmd, context.CreateRendererList(renderList));
+#pragma warning restore CS0618
 
 #if !UNITY_2023_1_OR_NEWER
 			// Prior to 2023 camera motion vectors are rendered directly on objects, so we will finish mv calculation here and won't execute camera mv
@@ -154,14 +200,15 @@ namespace HTraceAO.Scripts.Passes.URP
 #endif // UNITY_6000_0_OR_NEWER
 
 				// Target target[0] is set as a Depth Buffer, just because this method requires Depth, but we don't care for it in the fullscreen pass
-				RenderTargetIdentifier[] motionVectorsMRT = { CustomCameraMotionVectorsURP[0], CustomCameraMotionVectorsURP[1]};
-				CoreUtils.SetRenderTarget(cmd, motionVectorsMRT, motionVectorsMRT[0]);
+				MotionVectorsMRT_Camera[0] = CustomCameraMotionVectorsURP[0];
+				MotionVectorsMRT_Camera[1] = CustomCameraMotionVectorsURP[1];
+				CoreUtils.SetRenderTarget(cmd, MotionVectorsMRT_Camera, MotionVectorsMRT_Camera[0]);
 
-				CameraMotionVectorsMaterial_URP.SetTexture(ObjectMotionVectorsColor, ObjectMotionVectorsColorURP);
-				CameraMotionVectorsMaterial_URP.SetTexture(ObjectMotionVectorsDepth, ObjectMotionVectorsDepthURP);
-				CameraMotionVectorsMaterial_URP.SetFloat(BiasOffset, DepthBiasOffset);
+				MotionVectorsMaterial_URP.SetTexture(_ObjectMotionVectorsColor, ObjectMotionVectorsColorURP);
+				MotionVectorsMaterial_URP.SetTexture(_ObjectMotionVectorsDepth, ObjectMotionVectorsDepthURP);
+				MotionVectorsMaterial_URP.SetFloat(_BiasOffset, DepthBiasOffset);
 
-				cmd.DrawProcedural(Matrix4x4.identity, CameraMotionVectorsMaterial_URP, 0, MeshTopology.Triangles, 3, 1);
+				cmd.DrawProcedural(Matrix4x4.identity, MotionVectorsMaterial_URP, 0, MeshTopology.Triangles, 3, 1);
 
 				// This restores color camera color target (.SetRenderTarget can be used for Forward + any Depth Priming, but doesn't work in Deferred)
 #pragma warning disable CS0618
@@ -176,181 +223,135 @@ namespace HTraceAO.Scripts.Passes.URP
 			RenderObjectsMotionVectors(ref renderingData, ref context);
 			RenderCameraMotionVectors();
 		}
+#endif
 
 		#endregion --------------------------- Non Render Graph ---------------------------
 
 		#region --------------------------- Render Graph ---------------------------
 		
 #if UNITY_2023_3_OR_NEWER
-		private class PassData
+		ProfilingSampler MVProfilingSampler = new ProfilingSampler(HNames.HTRACE_SSAO_PASS_NAME);
+		private class ObjectMVPassData
 		{
-			public RendererListHandle  RendererListHandle;
-			public TextureHandle       ColorTexture;
-			public TextureHandle       DepthTexture;
-			public TextureHandle       MotionVectorsTexture;
-			public UniversalCameraData UniversalCameraData;
-			public TextureHandle[]     CustomCameraMotionVectors = new TextureHandle[2];
-			public TextureHandle       ObjectMotionVectorsColor;
-			public TextureHandle       ObjectMotionVectorsDepth;
+			public TextureHandle      MotionVectorsTexture;
+			public RendererListHandle RendererListHandle;
+		}
+
+		private class CameraMVPassData
+		{
+			public TextureHandle ObjectMotionVectorsColor;
+			public TextureHandle ObjectMotionVectorsDepth;
 		}
 		
 		public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
 		{
-			using (var builder = renderGraph.AddUnsafePass<PassData>(HNames.HTRACE_MV_PASS_NAME, out var passData, new ProfilingSampler(HNames.HTRACE_MV_PASS_NAME)))
+			UniversalCameraData universalCameraData = frameData.Get<UniversalCameraData>();
+			
+			ConfigureInput(ScriptableRenderPassInput.Motion | ScriptableRenderPassInput.Depth);
+
+			using (IRasterRenderGraphBuilder builder = renderGraph.AddRasterRenderPass<ObjectMVPassData>(HNames.HTRACE_OBJECTS_MV_PASS_NAME, out var passData, ObjectMVProfilingSampler))
 			{
 				UniversalResourceData  resourceData           = frameData.Get<UniversalResourceData>();
-				UniversalCameraData    universalCameraData    = frameData.Get<UniversalCameraData>();
 				UniversalRenderingData universalRenderingData = frameData.Get<UniversalRenderingData>();
-				UniversalLightData     lightData              = frameData.Get<UniversalLightData>();
-
-				if (HSettings.GeneralSettings.AmbientOcclusionMode == AmbientOcclusionMode.GTAO && HSettings.GTAOSettings.SampleCountTemporal > 1
-				    || HSettings.GeneralSettings.AmbientOcclusionMode == AmbientOcclusionMode.RTAO && HSettings.RTAOSettings.SampleCountTemporal > 1)
-					ConfigureInput(ScriptableRenderPassInput.Motion);
-				
+			
 				builder.AllowGlobalStateModification(true);
 				builder.AllowPassCulling(false);
 				
-				TextureHandle colorTexture = universalRenderingData.renderingMode == RenderingMode.Deferred ? resourceData.activeColorTexture : resourceData.cameraColor;
-				TextureHandle depthTexture = universalRenderingData.renderingMode == RenderingMode.Deferred ? resourceData.activeDepthTexture : resourceData.cameraDepth;
-				TextureHandle mvTexture    = resourceData.motionVectorColor;
-				builder.UseTexture(colorTexture, AccessFlags.Read);
-				builder.UseTexture(depthTexture, AccessFlags.Read);
-				builder.UseTexture(mvTexture, AccessFlags.Read);
-
-				passData.ColorTexture         = colorTexture;
-				passData.DepthTexture         = depthTexture;
-				passData.MotionVectorsTexture = mvTexture;
-				passData.UniversalCameraData  = universalCameraData;
-
-				AddRendererList(renderGraph, universalCameraData, universalRenderingData, lightData, passData, builder);
-
-				SetupShared(universalCameraData.camera, universalCameraData.renderScale, universalCameraData.cameraTargetDescriptor);
-				ExtensionsURP.UseTexture(builder, renderGraph, CustomCameraMotionVectorsURP[0], ref passData.CustomCameraMotionVectors[0], AccessFlags.ReadWrite);
-				ExtensionsURP.UseTexture(builder, renderGraph, CustomCameraMotionVectorsURP[1], ref passData.CustomCameraMotionVectors[1], AccessFlags.ReadWrite);
-				ExtensionsURP.UseTexture(builder, renderGraph, ObjectMotionVectorsColorURP, ref passData.ObjectMotionVectorsColor, AccessFlags.ReadWrite);
-				ExtensionsURP.UseTexture(builder, renderGraph, ObjectMotionVectorsDepthURP, ref passData.ObjectMotionVectorsDepth, AccessFlags.ReadWrite);
-
-				builder.SetRenderFunc((PassData data, UnsafeGraphContext context) => ExecutePass(data, context));
-			}
-		}
-		
-		private static void AddRendererList(RenderGraph renderGraph, UniversalCameraData universalCameraData, UniversalRenderingData universalRenderingData, UniversalLightData lightData, PassData passData, IUnsafeRenderGraphBuilder builder)
-		{
-			SortingCriteria   sortFlags        = universalCameraData.defaultOpaqueSortFlags;
-			RenderQueueRange  renderQueueRange = RenderQueueRange.opaque;
-			FilteringSettings filterSettings   = new FilteringSettings(renderQueueRange, ~0);
-
-			// Redraw only objects that have their LightMode tag set to UniversalForward 
-			ShaderTagId shadersToOverride = new ShaderTagId("MotionVectors");
-
-			// Create drawing settings
-			DrawingSettings drawSettings = RenderingUtils.CreateDrawingSettings(shadersToOverride, universalRenderingData, universalCameraData, lightData, sortFlags);
-			drawSettings.perObjectData = PerObjectData.MotionVectors;
-			
-			// Add the override material to the drawing settings
-			//drawSettings.overrideMaterial = materialToUse;
-
-			// Create the list of objects to draw
-			var rendererListParameters = new RendererListParams(universalRenderingData.cullResults, drawSettings, filterSettings);
-
-			// Convert the list to a list handle that the render graph system can use
-			passData.RendererListHandle = renderGraph.CreateRendererList(rendererListParameters);
-                
-			// Set the render target as the color and depth textures of the active camera texture
-			builder.UseRendererList(passData.RendererListHandle);
-		}
-		
-		private static void ExecutePass(PassData data, UnsafeGraphContext rgContext)
-		{
-			var cmd = CommandBufferHelpers.GetNativeCommandBuffer(rgContext.cmd);
-
-			Camera camera = data.UniversalCameraData.camera;
-			
-			RenderMotionVectorsRenderGraph(cmd, data);
-		}
-
-		private static void RenderMotionVectorsRenderGraph(CommandBuffer cmd, PassData data)
-		{
-			void RenderObjectMotionVectors()
-			{
-				// OBSOLETE?
-				// if (ObjectMotionVectorsColorURP.rt.width != RTHandles.rtHandleProperties.currentViewportSize.x) // Switch from Scene view to Game view for RenderGraph only case
-				// {
-				// 	cmd.SetGlobalTexture(HShaderParams.g_HTraceMotionVectors, data.MotionVectorsTexture);
-				// 	cmd.SetGlobalTexture(HShaderParams.g_HTraceMotionMask, ObjectMotionVectorsColorURP.rt);
-				// 	return;
-				// }
-
-				cmd.SetRenderTarget(data.ObjectMotionVectorsColor, data.DepthTexture);
-				cmd.ClearRenderTarget(false, true, Color.black);
-
-				cmd.DrawRendererList(data.RendererListHandle);
-				cmd.SetGlobalTexture(HShaderParams.g_HTraceMotionVectors, data.MotionVectorsTexture);
-				cmd.SetGlobalTexture(HShaderParams.g_HTraceMotionMask, data.ObjectMotionVectorsColor);
-			}
-
-			void RenderCameraMotionVectors()
-			{
-				// Render Graph + Game View - no need to render camera mv, as they are already available to us in this combination
-				if (data.UniversalCameraData.cameraType == CameraType.Game)
+				TextureHandle depthTexture = resourceData.activeDepthTexture;
+				TextureHandle motionVectorsTexture = resourceData.motionVectorColor;
+				if (motionVectorsTexture.IsValid())
 				{
-					return;
+					builder.UseTexture(motionVectorsTexture, AccessFlags.Read);
+					passData.MotionVectorsTexture = motionVectorsTexture;
 				}
 
-				float DepthBiasOffset = 0;
+				AddRendererList(renderGraph, universalCameraData, universalRenderingData, passData, builder);
 
-				// Target target[0] is set as a Depth Buffer, just because this method requires Depth, but we don't care for it in the fullscreen pass
-				RenderTargetIdentifier[] motionVectorsMRT = { data.CustomCameraMotionVectors[0], data.CustomCameraMotionVectors[1],};
-				CoreUtils.SetRenderTarget(cmd, motionVectorsMRT, motionVectorsMRT[0]);
+				// This was previously colorTexture.GetDescriptor(renderGraph);
+				TextureDesc descDepth = depthTexture.GetDescriptor(renderGraph);
+				descDepth.colorFormat = GraphicsFormat.R16G16_SFloat;
+				descDepth.name  = _ObjectMotionVectorsColorURP;
+				TextureHandle objectMotionVectorsColorTexHandle = renderGraph.CreateTexture(descDepth);
 
-				CameraMotionVectorsMaterial_URP.SetTexture(ObjectMotionVectorsColor, data.ObjectMotionVectorsColor);
-				CameraMotionVectorsMaterial_URP.SetTexture(ObjectMotionVectorsDepth, data.ObjectMotionVectorsDepth);
-				CameraMotionVectorsMaterial_URP.SetFloat(BiasOffset, DepthBiasOffset);
+				builder.SetRenderAttachment(objectMotionVectorsColorTexHandle, 0);
+				builder.SetRenderAttachmentDepth(depthTexture, AccessFlags.ReadWrite);
 
-				cmd.DrawProcedural(Matrix4x4.identity, CameraMotionVectorsMaterial_URP, 0, MeshTopology.Triangles, 3, 1);
+				//if (motionVectorsTexture.IsValid()) //seems to work fine without this
+				//builder.SetGlobalTextureAfterPass(motionVectorsTexture, HShaderParams.g_HTraceMotionVectors);
+				builder.SetGlobalTextureAfterPass(objectMotionVectorsColorTexHandle, HShaderParams.g_HTraceMotionMask);
 
-				// This restores color camera color target (.SetRenderTarget can be used for Forward + any Depth Priming, but doesn't work in Deferred)
-				cmd.SetRenderTarget(data.ColorTexture);
+				builder.SetRenderFunc((ObjectMVPassData data, RasterGraphContext context) =>
+				{
+					RasterCommandBuffer cmd = context.cmd;
 
-				cmd.SetGlobalTexture(HShaderParams.g_HTraceMotionVectors, data.CustomCameraMotionVectors[0]);
-				cmd.SetGlobalTexture(HShaderParams.g_HTraceMotionMask, data.CustomCameraMotionVectors[1]);
+					if (data.MotionVectorsTexture.IsValid())
+					{
+						try { cmd.SetGlobalTexture(HShaderParams.g_HTraceMotionVectors, data.MotionVectorsTexture); }
+						catch (InvalidOperationException) { Shader.SetGlobalTexture(HShaderParams.g_HTraceMotionVectors, Texture2D.blackTexture); }
+					}
+					
+					cmd.ClearRenderTarget(false, true, Color.black);
+					cmd.DrawRendererList(data.RendererListHandle);
+				});
 			}
 
-			RenderObjectMotionVectors();
-			RenderCameraMotionVectors();
+			// Render Graph + Game View - no need to render camera mv, as they are already available to us in this combination
+			if (universalCameraData.cameraType == CameraType.Game)
+				return;
+
+			using (IRasterRenderGraphBuilder builder = renderGraph.AddRasterRenderPass<CameraMVPassData>(HNames.HTRACE_CAMERA_MV_PASS_NAME, out var passData, CameraMVProfilingSampler))
+			{
+				UniversalResourceData  resourceData  = frameData.Get<UniversalResourceData>();
+
+				builder.AllowGlobalStateModification(true);
+				builder.AllowPassCulling(false);
+
+				TextureHandle colorTexture = resourceData.activeColorTexture;
+				
+				if (MotionVectorsMaterial_URP == null) MotionVectorsMaterial_URP = new Material(Shader.Find($"Hidden/{HNames.ASSET_NAME}/MotionVectorsURP"));
+				
+				TextureDesc desc = colorTexture.GetDescriptor(renderGraph);
+				desc.colorFormat = GraphicsFormat.R16G16_SFloat;
+				desc.name  = _CustomCameraMotionVectorsURP_0;
+				TextureHandle cameraMotionVectorsColorTexHandle = renderGraph.CreateTexture(desc);
+			
+				builder.SetRenderAttachment(cameraMotionVectorsColorTexHandle, 0);
+				builder.SetGlobalTextureAfterPass(cameraMotionVectorsColorTexHandle, HShaderParams.g_HTraceMotionVectors);
+				
+				builder.SetRenderFunc((CameraMVPassData data, RasterGraphContext context) =>
+				{
+					RasterCommandBuffer cmd = context.cmd;
+					
+					MotionVectorsMaterial_URP.SetTexture(_ObjectMotionVectorsColor, context.defaultResources.blackTexture);
+					MotionVectorsMaterial_URP.SetTexture(_ObjectMotionVectorsDepth, context.defaultResources.whiteTexture);
+					MotionVectorsMaterial_URP.SetFloat(_BiasOffset, 0);
+
+					cmd.DrawProcedural(Matrix4x4.identity, MotionVectorsMaterial_URP, 0, MeshTopology.Triangles, 3, 1);
+				});
+			}
+		}
+		
+		private static void AddRendererList(RenderGraph renderGraph, UniversalCameraData universalCameraData, UniversalRenderingData universalRenderingData, ObjectMVPassData objectMvPassData, IRasterRenderGraphBuilder builder)
+		{
+			forwardGBufferRenderStateBlock.mask |= RenderStateMask.Depth;
+			
+			var renderList = new UnityEngine.Rendering.RendererUtils.RendererListDesc(MotionVectorsShaderTags[0], universalRenderingData.cullResults, universalCameraData.camera)
+			{
+				rendererConfiguration = PerObjectData.MotionVectors,
+				renderQueueRange      = RenderQueueRange.opaque,
+				sortingCriteria       = SortingCriteria.CommonOpaque,
+				stateBlock            = forwardGBufferRenderStateBlock,
+			};
+			
+			objectMvPassData.RendererListHandle = renderGraph.CreateRendererList(renderList);
+			
+			builder.UseRendererList(objectMvPassData.RendererListHandle);
 		}
 #endif
 		
 		#endregion ---------------------------  Render Graph ---------------------------
 
-		#region --------------------------- Share ---------------------------
-
-		private static void SetupShared(Camera camera, float renderScale, RenderTextureDescriptor desc)
-		{
-			if (CameraMotionVectorsMaterial_URP == null) CameraMotionVectorsMaterial_URP = new Material(Shader.Find($"Hidden/{HNames.ASSET_NAME}/CameraMotionVectorsURP"));
-
-			int width  = (int)(camera.scaledPixelWidth * renderScale);
-			int height = (int)(camera.scaledPixelHeight * renderScale);
-
-			if (desc.width != width || desc.height != height)
-				desc = new RenderTextureDescriptor(width, height);
-
-			desc.depthBufferBits    = 0; // Color and depth cannot be combined in RTHandles
-			desc.stencilFormat      = GraphicsFormat.None;
-			desc.depthStencilFormat = GraphicsFormat.None;
-			desc.msaaSamples        = 1;
-			desc.bindMS             = false;
-			desc.enableRandomWrite  = true;
-
-			RenderTextureDescriptor depthDesc = desc;
-			//depthDesc.depthBufferBits = 32;
-			depthDesc.graphicsFormat  = GraphicsFormat.R16_SFloat;
-
-			ExtensionsURP.ReAllocateIfNeeded(_CustomCameraMotionVectorsURP_0, ref CustomCameraMotionVectorsURP[0], ref desc, graphicsFormat: GraphicsFormat.R16G16_SFloat);
-			ExtensionsURP.ReAllocateIfNeeded(_CustomCameraMotionVectorsURP_1, ref CustomCameraMotionVectorsURP[1], ref desc, graphicsFormat: GraphicsFormat.R8_SNorm);
-			ExtensionsURP.ReAllocateIfNeeded(_ObjectMotionVectorsColorURP, ref ObjectMotionVectorsColorURP, ref desc, graphicsFormat: GraphicsFormat.R16G16_SFloat);
-			ExtensionsURP.ReAllocateIfNeeded(_ObjectMotionVectorsDepthURP, ref ObjectMotionVectorsDepthURP, ref depthDesc, graphicsFormat: GraphicsFormat.R16_SFloat);
-		}
+		#region --------------------------- Shared ---------------------------
 
 		protected internal void Dispose()
 		{
@@ -360,6 +361,6 @@ namespace HTraceAO.Scripts.Passes.URP
 			ObjectMotionVectorsDepthURP?.Release();
 		}
 
-		#endregion --------------------------- Share ---------------------------
+		#endregion --------------------------- Shared ---------------------------
 	}
 }

@@ -5,7 +5,7 @@ using UnityEngine.SceneManagement;
 
 namespace Lattice.Editor
 {
-	public static class LatticeEditorFeature
+	internal static class LatticeEditorFeature
 	{
 		private static bool _initialised = false;
 		private static int _waitAttempts = 10;
@@ -27,6 +27,7 @@ namespace Lattice.Editor
 			AssemblyReloadEvents.beforeAssemblyReload += OnBeforeAssemblyReload;
 			EditorSceneManager.sceneSaved += OnSceneSaved;
 			EditorSceneManager.sceneSaving += OnSceneSaving;
+			Lightmapping.bakeStarted += OnLightmapBakeStarted;
 
 			_initialised = true;
 		}
@@ -46,8 +47,17 @@ namespace Lattice.Editor
 			AssemblyReloadEvents.beforeAssemblyReload -= OnBeforeAssemblyReload;
 			EditorSceneManager.sceneSaved -= OnSceneSaved;
 			EditorSceneManager.sceneSaving -= OnSceneSaving;
+			Lightmapping.bakeStarted -= OnLightmapBakeStarted;
 
 			_initialised = false;
+		}
+
+		/// <summary>
+		/// Called before assembly reloads. Cleans up and disables <see cref="LatticeFeature"/>.
+		/// </summary>
+		private static void OnBeforeAssemblyReload()
+		{
+			LatticeFeature.Cleanup();
 		}
 
 		/// <summary>
@@ -71,64 +81,13 @@ namespace Lattice.Editor
 			else
 			{
 				// After several attempts log error
-				Debug.LogError($"Could not load lattice compute. Make sure it's within a Resources folder and called {LatticeFeature.ComputeShaderName}");
+				Debug.LogError($"Could not load lattice compute. Make sure it's within " +
+					$"a Resources folder and called {LatticeFeature.ComputeShaderName}");
 			}
 			return false;
 		}
 
-		/// <summary>
-		/// Adds a context menu item to save the deformed mesh as an asset.
-		/// </summary>
-		private static void OnContextualPropertyMenu(GenericMenu menu, SerializedProperty property)
-		{
-			Object target = property.serializedObject.targetObject;
-
-			if (target is LatticeModifierBase modifier)
-			{
-				menu.AddItem(new GUIContent("Save Deformed Mesh..."), false, () =>
-				{
-					string path = EditorUtility.SaveFilePanelInProject(
-						"Save Deformed Mesh", 
-						modifier.gameObject.name, 
-						"asset", 
-						"Please enter a path to save the deformed mesh to."
-					);
-
-					if (!string.IsNullOrEmpty(path))
-					{
-						Mesh mesh = modifier.GetDeformedMesh();
-						if (mesh != null) AssetDatabase.CreateAsset(mesh, path);
-					}
-				});
-			}
-
-			if (target is SkinnedLatticeModifier skinnedModifier)
-			{
-				menu.AddItem(new GUIContent("Save Deformed Skinned Mesh..."), false, () =>
-				{
-					string path = EditorUtility.SaveFilePanelInProject(
-						"Save Deformed Skinned Mesh",
-						skinnedModifier.gameObject.name,
-						"asset",
-						"Please enter a path to save the deformed skinned mesh to."
-					);
-
-					if (!string.IsNullOrEmpty(path))
-					{
-						Mesh mesh = skinnedModifier.GetDeformedSkinnedMesh();
-						if (mesh != null) AssetDatabase.CreateAsset(mesh, path);
-					}
-				});
-			}
-		}
-
-		/// <summary>
-		/// Called before assembly reloads. Cleans up and disables <see cref="LatticeFeature"/>.
-		/// </summary>
-		private static void OnBeforeAssemblyReload()
-		{
-			LatticeFeature.Cleanup();
-		}
+		#region Scene Cleanup
 
 		/// <summary>
 		/// Changes all meshes to lattice version after saving.
@@ -144,6 +103,22 @@ namespace Lattice.Editor
 		private static void OnSceneSaving(Scene scene, string path)
 		{
 			ResetMeshes();
+		}
+
+		/// <summary>
+		/// Bakes any static meshes before lightmapping starts
+		/// </summary>
+		private static void OnLightmapBakeStarted()
+		{
+#pragma warning disable 0618
+			LatticeModifier[] components = Object.FindObjectsOfType<LatticeModifier>();
+#pragma warning restore 0618
+
+			LatticeBaker.Clear();
+			foreach (LatticeModifier modifier in components)
+			{
+				if (modifier.gameObject.isStatic) LatticeBaker.Bake(modifier, true);
+			}
 		}
 
 		/// <summary>
@@ -175,5 +150,90 @@ namespace Lattice.Editor
 				if (components[i].isActiveAndEnabled) components[i].ApplyMesh();
 			}
 		}
+
+		#endregion
+
+		#region Context Menus
+
+		/// <summary>
+		/// Popup to save a deformed mesh as an asset
+		/// </summary>
+		private static void SaveDeformedMesh(LatticeModifierBase modifier)
+		{
+			string path = EditorUtility.SaveFilePanelInProject(
+				"Save Deformed Mesh",
+				modifier.gameObject.name,
+				"asset",
+				"Please enter a path to save the deformed mesh to."
+			);
+
+			if (!string.IsNullOrEmpty(path))
+			{
+				Mesh mesh = modifier.GetDeformedMesh();
+				if (mesh != null) AssetDatabase.CreateAsset(mesh, path);
+			}
+		}
+
+		/// <summary>
+		/// Popup to save a deformed skinned mesh as an asset
+		/// </summary>
+		private static void SaveDeformedSkinnedMesh(SkinnedLatticeModifier modifier)
+		{
+			string path = EditorUtility.SaveFilePanelInProject(
+				"Save Deformed Skinned Mesh",
+				modifier.gameObject.name,
+				"asset",
+				"Please enter a path to save the deformed skinned mesh to."
+			);
+
+			if (!string.IsNullOrEmpty(path))
+			{
+				Mesh mesh = modifier.GetDeformedSkinnedMesh();
+				if (mesh != null) AssetDatabase.CreateAsset(mesh, path);
+			}
+		}
+
+		/// <summary>
+		/// Adds a context menu option to save the deformed mesh.
+		/// Appears when right clicking on the component header.
+		/// </summary>
+		[MenuItem("CONTEXT/LatticeModifierBase/Save Deformed Mesh...")]
+		private static void SaveDeformedMesh(MenuCommand command)
+		{
+			if (command.context is not LatticeModifierBase modifier) return;
+			SaveDeformedMesh(modifier);
+		}
+
+		/// <summary>
+		/// Adds a context menu option to save the deformed skinned mesh.
+		/// Appears when right clicking on the component header.
+		/// </summary>
+		[MenuItem("CONTEXT/SkinnedLatticeModifier/Save Deformed Skinned Mesh...")]
+		private static void SaveDeformedSkinnedMesh(MenuCommand command)
+		{
+			if (command.context is not SkinnedLatticeModifier modifier) return;
+			SaveDeformedSkinnedMesh(modifier);
+		}
+
+		/// <summary>
+		/// Adds a context menu item to save the deformed mesh as an asset.
+		/// Appears when right clicking anywhere within the component.
+		/// </summary>
+		private static void OnContextualPropertyMenu(GenericMenu menu, SerializedProperty property)
+		{
+			Object target = property.serializedObject.targetObject;
+
+			if (target is LatticeModifierBase modifier)
+			{
+				menu.AddItem(new GUIContent("Save Deformed Mesh..."), false, () => SaveDeformedMesh(modifier));
+			}
+
+			if (target is SkinnedLatticeModifier skinnedModifier)
+			{
+				menu.AddItem(new GUIContent("Save Deformed Skinned Mesh..."), false, () => SaveDeformedSkinnedMesh(skinnedModifier));
+			}
+		}
+
+		#endregion
 	}
 }

@@ -13,14 +13,14 @@ namespace Lattice.Editor
 		private const string DiscordUrl = "https://discord.gg/q4F9YbtB6V";
 		private const string ReviewUrl = "https://u3d.as/3mDH#reviews";
 		private const string Email = "support@harryheath.com";
-		private const string Version = "v1.3.0";
+		private const string Version = "v1.4.0";
 
 		private static readonly string DocumentationPath = Path.Combine("Documentation", "lattice.html");
 
 		public override void OnInspectorGUI()
 		{
 			Header1($"Lattice Modifier for Unity - {Version}");
-			Paragraph("Adds Lattice Modifiers to Unity, allowing you to deform both static and " + 
+			Paragraph("Adds Lattice Modifiers to Unity, allowing you to deform both static and " +
 				"skinned objects to create otherwise advanced animations with ease.");
 
 			Paragraph("");
@@ -62,7 +62,7 @@ namespace Lattice.Editor
 
 			Paragraph("");
 			Header2("Community");
-			Paragraph("For a place to discuss, ask questions and share your work with Lattices, " + 
+			Paragraph("For a place to discuss, ask questions and share your work with Lattices, " +
 				"check out the discord server:");
 			using (new EditorGUILayout.HorizontalScope())
 			{
@@ -72,7 +72,7 @@ namespace Lattice.Editor
 
 			Paragraph("");
 			Header2("Thank you for your support!");
-			Paragraph("If you have enjoyed using the asset, "+ 
+			Paragraph("If you have enjoyed using the asset, " +
 				"please consider giving it a positive review. It would mean a lot to me, thank you:");
 			using (new EditorGUILayout.HorizontalScope())
 			{
@@ -109,7 +109,7 @@ namespace Lattice.Editor
 
 			using (new Handles.DrawingScope(Styles.Link.normal.textColor))
 				Handles.DrawLine(
-					new Vector3(position.xMin + Styles.Link.padding.left, position.yMax), 
+					new Vector3(position.xMin + Styles.Link.padding.left, position.yMax),
 					new Vector3(position.xMax - Styles.Link.padding.right, position.yMax)
 				);
 

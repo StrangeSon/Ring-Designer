@@ -33,18 +33,20 @@ namespace sc.modeling.splines.runtime
             }
             public readonly Position position;
             
+            [Tooltip("The source object to use. An instance of this will be spawned. It may be destroyed and recreated under certain conditions, so manual changes may be lost.")]
             public GameObject prefab;
-            [SerializeField] [ HideInInspector]
-            private int previousPrefabID;
+            [SerializeField]
+            //Solely used for reliable change tracking
+            private GameObject previousPrefab;
 
             public bool HasPrefabChanged()
             {
-                if (prefab == null) return true;
-
-                int hashCode = prefab.GetHashCode();
-                if (hashCode != previousPrefabID)
+                if (!prefab) return true;
+                
+                if (prefab != previousPrefab)
                 {
-                    previousPrefabID = hashCode;
+                    //Debug.Log($"Prefab changed on {position} cap.");
+                    previousPrefab = prefab;
                     
                     return true;
                 }
@@ -70,22 +72,24 @@ namespace sc.modeling.splines.runtime
             //Save a reference to the instantiated objects, so they can be accessed again, deleted when necessary.
             //[HideInInspector]
             public GameObject[] instances = Array.Empty<GameObject>();
-
+            public int InstanceCount => instances.Length;
+            
             public bool RequiresRespawn()
             {
-                return HasPrefabChanged() || HasNoInstances() || HasMissingInstances();
+                return HasNoInstances() || HasPrefabChanged() || HasMissingInstances();
             }
             
             public bool HasNoInstances()
             {
-                return instances.Length == 0;
+                return InstanceCount == 0;
             }
             
+            //User may delete the instances in the hierarchy
             public bool HasMissingInstances()
             {
                 for (int i = 0; i < instances.Length; i++)
                 {
-                    if (instances[i] == null) return true;
+                    if (!instances[i]) return true;
                 }
                 return false;
             }
@@ -95,7 +99,7 @@ namespace sc.modeling.splines.runtime
                 //Destroy any existing instances
                 for (int i = 0; i < instances.Length; i++)
                 {
-                    DestroyInstance(instances[i]);
+                    if (instances[i]) DestroyInstance(instances[i]);
                 }
             }
             
@@ -116,7 +120,7 @@ namespace sc.modeling.splines.runtime
                 DestroyInstances();
             
                 //Nothing to spawn, clear out
-                if (prefab == null)
+                if (!prefab)
                 {
                     //Debug.Log("Cap has no prefab, clearing and bailing");
                     instances = Array.Empty<GameObject>();
@@ -133,6 +137,7 @@ namespace sc.modeling.splines.runtime
                     instance.transform.SetParent(parent);
                 
                     instances[i] = instance;
+                    previousPrefab = prefab;
                 }
             }
         
@@ -174,7 +179,7 @@ namespace sc.modeling.splines.runtime
 
                 if (instance == null)
                 {
-                    Debug.LogError($"Failed to spawn instance. Source is prefab: {isPrefab}");
+                    Debug.LogError($"Failed to spawn cap instance. Was the prefab source as scene object and deleted? Source is prefab: {isPrefab}");
                 }
                 
                 return instance;
@@ -208,24 +213,34 @@ namespace sc.modeling.splines.runtime
                     t = Mathf.Clamp(t, 0.0001f, 0.9999f);
             
                     splineMesher.splineContainer.Splines[splineIndex].Evaluate(t, out float3 splinePoint, out float3 tangent, out float3 up);
+
+                    //To world-space
+                    tangent = splineMesher.splineContainer.transform.rotation * tangent;
+                    up = splineMesher.splineContainer.transform.rotation * up;
+                    
+                    if (this.position == Position.Start) tangent = -tangent;
                     
                     float3 forward = math.normalize(tangent);
                     float3 right = math.cross(forward, up);
             
                     //Rotation
-                    Quaternion m_rotation = Quaternion.Euler(rotation);
+                    Quaternion m_rotation = Quaternion.identity;
                     if (align)
                     {
-                        m_rotation = Quaternion.LookRotation(forward, up) * Quaternion.Euler(rotation);
+                        m_rotation = Quaternion.LookRotation(forward, up);
                         
                         m_rotation = splineMesher.SampleRollRotation(splineMesher.splineContainer.Splines[splineIndex], forward, t * splineLength, splineIndex) * m_rotation;
-                        right = m_rotation * math.right();
-                        up = m_rotation * math.up();
 
                         //Flipped?
                         if(position == Position.End || (position == Position.Start && scale.z < 0)) right = -right;
-                    }
 
+                        //Does not work as expected, the start/end of the mesh may have been moved drastically, whilst the cap is positioned on the spline itself.
+                        if (splineMesher.settings.deforming.ignoreKnotRotation)
+                        {
+                            //m_rotation = SplineMeshGenerator.RollCorrectedRotation(forward);
+                        }
+                    }
+                    
                     //Offset
                     splinePoint += right * (offset.x - splineMesher.settings.deforming.curveOffset.x);
                     splinePoint += up * (offset.y - splineMesher.settings.deforming.curveOffset.y);
@@ -239,18 +254,28 @@ namespace sc.modeling.splines.runtime
                     
                     if (splineMesher.settings.conforming.enable)
                     {
-                        if (SplineMeshGenerator.PerformConforming(splinePoint, splineMesher.settings.conforming, 1f, out float3 hitPosition, out float3 hitNormal))
+                        if (SplineMeshGenerator.PerformConforming(splinePoint, splineMesher.settings.conforming.direction == Settings.Conforming.Direction.StraightDown ? -math.up() : -up, splineMesher.settings.conforming, 1f, out float3 hitPosition, out float3 hitNormal))
                         {
                             splinePoint.y = hitPosition.y + offset.y;
-
-                            quaternion hitRotation = quaternion.LookRotationSafe(tangent, hitNormal);
                             
-                            if (splineMesher.settings.conforming.align)
+                            if (splineMesher.settings.conforming.align && align)
                             {
-                                //m_rotation = hitRotation;
+                                //Rotate Y and Z
+                                m_rotation = quaternion.LookRotation(forward, hitNormal);
+                                
+                                /* This barely works, only along slopes in the negative direction
+                                //Now rotate X to face along forward direction
+                                Quaternion upRotation = Quaternion.FromToRotation(Vector3.up, hitNormal);
+                                float sign = Mathf.Sign(Vector3.Dot(Vector3.up, hitNormal));
+                                float xRad = (-upRotation.eulerAngles.x * sign * Mathf.Deg2Rad);
+                                m_rotation *= quaternion.AxisAngle(math.right(), xRad);
+                                */
                             }
                         }
                     }
+
+                    //Apply custom added rotation last
+                    m_rotation *= Quaternion.Euler(rotation);
                     
                     Vector3 m_scale = scale;
                     if (matchScale)
@@ -277,6 +302,40 @@ namespace sc.modeling.splines.runtime
 
         public Cap startCap = new Cap(Cap.Position.Start);
         public Cap endCap = new Cap(Cap.Position.End);
+
+        //When using raycasts, the colliders on caps should be temporarily disabled
+        private void SetColliderStates(bool startState, bool endState, out bool startDisabled, out bool endDisabled)
+        {
+            startDisabled = SetStateCollider(startCap, startState);
+            endDisabled = SetStateCollider(endCap, endState);
+        }
+
+        private static bool SetStateCollider(Cap cap, bool state)
+        {
+            bool changed = false;
+            if (cap.instances.Length > 0)
+            {
+                for (int i = 0; i < cap.instances.Length; i++)
+                {
+                    if (cap.instances[i])
+                    {
+                        Collider[] colliders = cap.instances[i].gameObject.GetComponentsInChildren<Collider>(false);
+
+                        for (int j = 0; j < colliders.Length; j++)
+                        {
+                            if (colliders[j].enabled != state)
+                            {
+                                colliders[j].enabled = state;
+                                changed = true;
+                            }
+                            
+                        }
+                    }
+                }
+            }
+
+            return changed;
+        }
         
         #if SPLINES
         /// <summary>
@@ -298,10 +357,53 @@ namespace sc.modeling.splines.runtime
             {
                 endCap.Respawn(splineCount, this.transform);
             }
+
+            //Avoid self-collision with raycasts
+            bool toggleCollider = false;
+            if (settings.conforming.enable && meshCollider && meshCollider.enabled)
+            {
+                meshCollider.enabled = false;
+                toggleCollider = true;
+            }
+            
+            SetColliderStates(false, false, out var startCapDisabled, out var endCapDisabled);
             
             startCap.ApplyTransform(this);
             endCap.ApplyTransform(this);
+            
+            SetColliderStates(startCapDisabled, endCapDisabled, out var _, out var _);
+
+            if (toggleCollider)
+            {
+                meshCollider.enabled = true;
+            }
         }
         #endif
+        
+        public void DetachCaps()
+        {
+            void DetachCap(Cap cap)
+            {
+                int instanceCount = cap.instances.Length;
+                
+                if (instanceCount > 0)
+                {
+                    for (int i = 0; i < instanceCount; i++)
+                    {
+                        if (cap.instances[i])
+                        {
+                            cap.instances[i].transform.parent = this.transform.parent;
+                        }
+                    }
+
+                    cap.instances = Array.Empty<GameObject>();
+
+                    cap.prefab = null;
+                }
+            }
+            
+            DetachCap(startCap);
+            DetachCap(endCap);
+        }
     }
 }

@@ -14,7 +14,7 @@ namespace HTraceAO.Scripts.Editor.WindowsAndMenu
         private GUIStyle _styleLabel;
         private Vector2 _scrollPosition = Vector2.zero;
 
-        [MenuItem("Window/HTrace/Report Bug HTrace AO", false, priority: 32)]
+        [MenuItem("Window/HTrace/Report a Bug HTrace AO", false, priority: 32)]
         public static void ShowWindow()
         {
             var window = GetWindow<HBugReporterWindow>(false, "Report Bug", true);

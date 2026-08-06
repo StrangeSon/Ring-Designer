@@ -4,6 +4,7 @@ namespace HTraceAO.Scripts.Globals
 {
 	public static class HShaderParams
 	{
+		public static readonly string _SCREEN_SPACE_OCCLUSION = "_SCREEN_SPACE_OCCLUSION";
 		// Globals, "g_" prefix
 		public static readonly int g_HTraceGBuffer0         = Shader.PropertyToID("g_HTraceGBuffer0");
 		public static readonly int g_HTraceGBuffer1         = Shader.PropertyToID("g_HTraceGBuffer1");

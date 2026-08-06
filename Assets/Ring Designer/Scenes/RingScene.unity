@@ -4070,7 +4070,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   startCap:
     prefab: {fileID: 0}
-    previousPrefabID: 0
+    previousPrefab: {fileID: 0}
     offset: {x: 0, y: 0, z: 0}
     shift: 0
     align: 1
@@ -4080,7 +4080,7 @@ MonoBehaviour:
     instances: []
   endCap:
     prefab: {fileID: 0}
-    previousPrefabID: 0
+    previousPrefab: {fileID: 0}
     offset: {x: 0, y: 0, z: 0}
     shift: 0
     align: 1
@@ -4114,6 +4114,7 @@ MonoBehaviour:
       pivotOffset: {x: 0, y: 0}
       scale: {x: 2, y: 2, z: 2}
       scalePathIndexUnit: 0
+      scaleInterpolation: 0
       ignoreKnotRotation: 0
       rollMode: 0
       rollFrequency: 0.1
@@ -4127,6 +4128,8 @@ MonoBehaviour:
       pathIndexUnit: 0
     conforming:
       enable: 0
+      pathIndexUnit: 0
+      direction: 0
       seekDistance: 5
       terrainOnly: 0
       layerMask:
@@ -4146,9 +4149,6 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_meshFilter: {fileID: 622308098}
-  prevSplinePosition: {x: 0, y: 1.06, z: -1.08}
-  prevSplineRotation: {x: 0.5910307, y: -0, z: -0, w: -0.8066491}
-  prevSplineScale: {x: 0.265, y: 0.36000004, z: 0.32000002}
   splineContainer: {fileID: 622308096}
   splineCount: 1
   splineChangeMode: 0
@@ -4163,6 +4163,7 @@ MonoBehaviour:
   - m_IndexUnit: 0
     m_DefaultValue: 0
     m_DataPoints: []
+  conformingStrength: []
   vertexColorRedData:
   - m_IndexUnit: 0
     m_DefaultValue:
@@ -4984,6 +4985,171 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 890244490}
   m_CullTransparentMesh: 1
+--- !u!43 &907126223
+Mesh:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: ' Spline'
+  serializedVersion: 11
+  m_SubMeshes:
+  - serializedVersion: 2
+    firstByte: 0
+    indexCount: 0
+    topology: 0
+    baseVertex: 0
+    firstVertex: 0
+    vertexCount: 0
+    localAABB:
+      m_Center: {x: 0, y: 0, z: 0}
+      m_Extent: {x: 0, y: 0, z: 0}
+  m_Shapes:
+    vertices: []
+    shapes: []
+    channels: []
+    fullWeights: []
+  m_BindPose: []
+  m_BoneNameHashes: 
+  m_RootBoneNameHash: 0
+  m_BonesAABB: []
+  m_VariableBoneCountWeights:
+    m_Data: 
+  m_MeshCompression: 0
+  m_IsReadable: 1
+  m_KeepVertices: 1
+  m_KeepIndices: 1
+  m_IndexFormat: 0
+  m_IndexBuffer: 
+  m_VertexData:
+    serializedVersion: 3
+    m_VertexCount: 0
+    m_Channels:
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    m_DataSize: 0
+    _typelessdata: 
+  m_CompressedMesh:
+    m_Vertices:
+      m_NumItems: 0
+      m_Range: 0
+      m_Start: 0
+      m_Data: 
+      m_BitSize: 0
+    m_UV:
+      m_NumItems: 0
+      m_Range: 0
+      m_Start: 0
+      m_Data: 
+      m_BitSize: 0
+    m_Normals:
+      m_NumItems: 0
+      m_Range: 0
+      m_Start: 0
+      m_Data: 
+      m_BitSize: 0
+    m_Tangents:
+      m_NumItems: 0
+      m_Range: 0
+      m_Start: 0
+      m_Data: 
+      m_BitSize: 0
+    m_Weights:
+      m_NumItems: 0
+      m_Data: 
+      m_BitSize: 0
+    m_NormalSigns:
+      m_NumItems: 0
+      m_Data: 
+      m_BitSize: 0
+    m_TangentSigns:
+      m_NumItems: 0
+      m_Data: 
+      m_BitSize: 0
+    m_FloatColors:
+      m_NumItems: 0
+      m_Range: 0
+      m_Start: 0
+      m_Data: 
+      m_BitSize: 0
+    m_BoneIndices:
+      m_NumItems: 0
+      m_Data: 
+      m_BitSize: 0
+    m_Triangles:
+      m_NumItems: 0
+      m_Data: 
+      m_BitSize: 0
+    m_UVInfo: 0
+  m_LocalAABB:
+    m_Center: {x: 0, y: 0, z: 0}
+    m_Extent: {x: 0, y: 0, z: 0}
+  m_MeshUsageFlags: 0
+  m_CookingOptions: 30
+  m_BakedConvexCollisionMesh: 
+  m_BakedTriangleCollisionMesh: 
+  'm_MeshMetrics[0]': 0
+  'm_MeshMetrics[1]': 0
+  m_MeshOptimizationFlags: 1
+  m_StreamData:
+    serializedVersion: 2
+    offset: 0
+    size: 0
+    path: 
 --- !u!1 &949454786
 GameObject:
   m_ObjectHideFlags: 0
@@ -7232,171 +7398,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 6524112ac480c30448151c0b326b4b5a, type: 3}
   m_PrefabInstance: {fileID: 1452827326}
   m_PrefabAsset: {fileID: 0}
---- !u!43 &1459849010
-Mesh:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_Name: ' Spline'
-  serializedVersion: 11
-  m_SubMeshes:
-  - serializedVersion: 2
-    firstByte: 0
-    indexCount: 0
-    topology: 0
-    baseVertex: 0
-    firstVertex: 0
-    vertexCount: 0
-    localAABB:
-      m_Center: {x: 0, y: 0, z: 0}
-      m_Extent: {x: 0, y: 0, z: 0}
-  m_Shapes:
-    vertices: []
-    shapes: []
-    channels: []
-    fullWeights: []
-  m_BindPose: []
-  m_BoneNameHashes: 
-  m_RootBoneNameHash: 0
-  m_BonesAABB: []
-  m_VariableBoneCountWeights:
-    m_Data: 
-  m_MeshCompression: 0
-  m_IsReadable: 1
-  m_KeepVertices: 1
-  m_KeepIndices: 1
-  m_IndexFormat: 0
-  m_IndexBuffer: 
-  m_VertexData:
-    serializedVersion: 3
-    m_VertexCount: 0
-    m_Channels:
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    m_DataSize: 0
-    _typelessdata: 
-  m_CompressedMesh:
-    m_Vertices:
-      m_NumItems: 0
-      m_Range: 0
-      m_Start: 0
-      m_Data: 
-      m_BitSize: 0
-    m_UV:
-      m_NumItems: 0
-      m_Range: 0
-      m_Start: 0
-      m_Data: 
-      m_BitSize: 0
-    m_Normals:
-      m_NumItems: 0
-      m_Range: 0
-      m_Start: 0
-      m_Data: 
-      m_BitSize: 0
-    m_Tangents:
-      m_NumItems: 0
-      m_Range: 0
-      m_Start: 0
-      m_Data: 
-      m_BitSize: 0
-    m_Weights:
-      m_NumItems: 0
-      m_Data: 
-      m_BitSize: 0
-    m_NormalSigns:
-      m_NumItems: 0
-      m_Data: 
-      m_BitSize: 0
-    m_TangentSigns:
-      m_NumItems: 0
-      m_Data: 
-      m_BitSize: 0
-    m_FloatColors:
-      m_NumItems: 0
-      m_Range: 0
-      m_Start: 0
-      m_Data: 
-      m_BitSize: 0
-    m_BoneIndices:
-      m_NumItems: 0
-      m_Data: 
-      m_BitSize: 0
-    m_Triangles:
-      m_NumItems: 0
-      m_Data: 
-      m_BitSize: 0
-    m_UVInfo: 0
-  m_LocalAABB:
-    m_Center: {x: 0, y: 0, z: 0}
-    m_Extent: {x: 0, y: 0, z: 0}
-  m_MeshUsageFlags: 0
-  m_CookingOptions: 30
-  m_BakedConvexCollisionMesh: 
-  m_BakedTriangleCollisionMesh: 
-  'm_MeshMetrics[0]': 0
-  'm_MeshMetrics[1]': 0
-  m_MeshOptimizationFlags: 1
-  m_StreamData:
-    serializedVersion: 2
-    offset: 0
-    size: 0
-    path: 
 --- !u!1 &1477489947
 GameObject:
   m_ObjectHideFlags: 0
@@ -9370,7 +9371,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   startCap:
     prefab: {fileID: 0}
-    previousPrefabID: 0
+    previousPrefab: {fileID: 0}
     offset: {x: 0, y: 0, z: 0}
     shift: 0
     align: 1
@@ -9380,7 +9381,7 @@ MonoBehaviour:
     instances: []
   endCap:
     prefab: {fileID: 0}
-    previousPrefabID: 0
+    previousPrefab: {fileID: 0}
     offset: {x: 0, y: 0, z: 0}
     shift: 0
     align: 1
@@ -9414,6 +9415,7 @@ MonoBehaviour:
       pivotOffset: {x: 0, y: 0}
       scale: {x: 2, y: 2, z: 2}
       scalePathIndexUnit: 0
+      scaleInterpolation: 0
       ignoreKnotRotation: 0
       rollMode: 0
       rollFrequency: 0.1
@@ -9427,6 +9429,8 @@ MonoBehaviour:
       pathIndexUnit: 0
     conforming:
       enable: 0
+      pathIndexUnit: 0
+      direction: 0
       seekDistance: 5
       terrainOnly: 0
       layerMask:
@@ -9446,9 +9450,6 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_meshFilter: {fileID: 2042199890}
-  prevSplinePosition: {x: 0, y: 1.06, z: -0.81}
-  prevSplineRotation: {x: 0.5910307, y: -0, z: 0, w: -0.8066491}
-  prevSplineScale: {x: 0.265, y: 0.36000004, z: 0.32000002}
   splineContainer: {fileID: 2042199889}
   splineCount: 1
   splineChangeMode: 0
@@ -9462,6 +9463,10 @@ MonoBehaviour:
   rollData:
   - m_IndexUnit: 0
     m_DefaultValue: 0
+    m_DataPoints: []
+  conformingStrength:
+  - m_IndexUnit: 0
+    m_DefaultValue: 1
     m_DataPoints: []
   vertexColorRedData:
   - m_IndexUnit: 0
@@ -9575,7 +9580,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2042199886}
-  m_Mesh: {fileID: 1459849010}
+  m_Mesh: {fileID: 907126223}
 --- !u!23 &2042199891
 MeshRenderer:
   m_ObjectHideFlags: 0

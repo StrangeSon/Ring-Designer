@@ -19,13 +19,13 @@ namespace HTraceAO.Scripts.Editor.WindowsAndMenu
 	public class HMenuAndFilesManager : EditorWindow
 	{
 
-		[MenuItem("Window/HTrace/Add HTrace Render Feature to active RendererData", false, priority: 32)]
+		[MenuItem("Window/HTrace/Add HTrace AO Render Feature to active RendererData", false, priority: 32)]
 		private static void AddRenderFeature()
 		{
 			HRendererURP.AddHTraceRendererFeatureToUniversalRendererData();
 		}
 
-		[MenuItem("Window/HTrace/Open documentation", false, priority: 32)]
+		[MenuItem("Window/HTrace/Open HTrace AO documentation", false, priority: 32)]
 		private static void OpenDocumentation()
 		{
 			Application.OpenURL(HNames.HTRACE_AO_DOCUMENTATION_LINK);

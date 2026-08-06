@@ -66,6 +66,21 @@ MonoBehaviour:
   m_Name: HTrace Ambient Occlusion
   m_EditorClassIdentifier: 
   m_Active: 1
+  m_Settings:
+    AOMethod: 0
+    Downsample: 0
+    AfterOpaque: 0
+    Source: 1
+    NormalSamples: 1
+    Intensity: 3
+    DirectLightingStrength: 0.25
+    Radius: 0.035
+    Samples: 1
+    BlurQuality: 0
+    Falloff: 100
+    SampleCount: -1
+  m_BlueNoise256Textures: []
+  m_Shader: {fileID: 0}
 --- !u!114 &1732946522256229361
 MonoBehaviour:
   m_ObjectHideFlags: 0

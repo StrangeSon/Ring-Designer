@@ -9,6 +9,6 @@ AssetOrigin:
   serializedVersion: 1
   productId: 306556
   packageName: 'HTrace: Ambient Occlusion URP'
-  packageVersion: 1.3.3
+  packageVersion: 1.4.0
   assetPath: Assets/HTraceAO/Resources/HTraceAO/Computes/HDenoiserGTAO.compute
-  uploadId: 791858
+  uploadId: 896260

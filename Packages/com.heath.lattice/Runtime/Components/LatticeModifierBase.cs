@@ -16,7 +16,7 @@ namespace Lattice
 	{
 		#region Constants
 
-		private const string TargetMeshTooltip = 
+		private const string TargetMeshTooltip =
 			"The mesh to apply deformations to and to render on this object.";
 
 		private const string ApplyMethodTooltip =
@@ -26,11 +26,11 @@ namespace Lattice
 			"Which UV channel to apply stretching to. Will overwrite existing data.";
 
 		private const string UpdateModeTooltip =
-			"When deformations should update. Only applies to non skinning lattices. " +  
+			"When deformations should update. Only applies to non skinning lattices. " +
 			"If set to Manual, you must call RequestUpdate().";
 
 		private const string LatticesTooltip =
-			"Lattices to apply to the target mesh. " + 
+			"Lattices to apply to the target mesh. " +
 			"These will be applied in order and before skinning.";
 
 		private const GraphicsBuffer.Target BufferTargets = GraphicsBuffer.Target.Raw
@@ -40,7 +40,7 @@ namespace Lattice
 
 		#region Fields
 
-		[SerializeField, NotKeyable, Tooltip(TargetMeshTooltip)] 
+		[SerializeField, NotKeyable, Tooltip(TargetMeshTooltip)]
 		private Mesh _targetMesh;
 
 		[SerializeField, NotKeyable, Tooltip(ApplyMethodTooltip)]
@@ -70,11 +70,12 @@ namespace Lattice
 		private List<ComputeBuffer> _indexBuffers;
 
 		private bool _ranThisFrame = false;
-		private ApplyMethod _actualApplyMethod;
+		private ApplyMethod _resolvedApplyMethod;
 
 		private Mesh _currentTargetMesh;
 		private ApplyMethod _currentApplyMethod;
 		private TextureCoordinate _currentStretchChannel;
+		private bool _currentIsStatic;
 
 		#endregion
 
@@ -91,6 +92,54 @@ namespace Lattice
 		public UpdateMode UpdateMode { get => _updateMode; set => _updateMode = value; }
 
 		/// <summary>
+		/// The mesh to apply deformations to.
+		/// </summary>
+		public Mesh TargetMesh
+		{
+			get => _targetMesh;
+			set
+			{
+				if (value != _targetMesh)
+				{
+					_targetMesh = value;
+					if (enabled) OnEnable();
+				}
+			}
+		}
+
+		/// <summary>
+		/// Which vertex attributes will be affected by deformation.
+		/// </summary>
+		public ApplyMethod ApplyMethod
+		{
+			get => _applyMethod;
+			set
+			{
+				if (value != _applyMethod)
+				{
+					_applyMethod = value;
+					if (enabled) OnEnable();
+				}
+			}
+		}
+
+		/// <summary>
+		/// Texcoord channel to apply the stretch/squish amount to.
+		/// </summary>
+		public TextureCoordinate StretchChannel
+		{
+			get => _stretchChannel;
+			set
+			{
+				if (value != _stretchChannel)
+				{
+					_stretchChannel = value;
+					if (enabled) OnEnable();
+				}
+			}
+		}
+
+		/// <summary>
 		/// Mesh used for rendering.
 		/// </summary>
 		internal Mesh Mesh => _mesh;
@@ -101,14 +150,9 @@ namespace Lattice
 		internal MeshInfo MeshInfo => _meshInfo;
 
 		/// <summary>
-		/// Setting for how the deformation will be applied.
+		/// The resolved apply method. May not match the target apply method.
 		/// </summary>
-		internal ApplyMethod ApplyMethod => _actualApplyMethod;
-
-		/// <summary>
-		/// Texcoord channel to apply the stretch/squish amount to.
-		/// </summary>
-		internal TextureCoordinate StretchChannel => _stretchChannel;
+		internal ApplyMethod ResolvedApplyMethod => _resolvedApplyMethod;
 
 		/// <summary>
 		/// A copy of this mesh's vertex buffer.
@@ -196,7 +240,18 @@ namespace Lattice
 				_indexBuffers = null;
 			}
 
-			_mesh = null;
+			if (_mesh != null)
+			{
+				if (Application.isPlaying)
+				{
+					Destroy(_mesh);
+				}
+				else
+				{
+					DestroyImmediate(_mesh);
+				}
+				_mesh = null;
+			}
 		}
 
 		/// <summary>
@@ -229,6 +284,9 @@ namespace Lattice
 
 		private void Initialise()
 		{
+			// Release any existing buffers or meshes
+			Release();
+
 			// Try get target mesh if one is not set
 			if (_targetMesh == null)
 			{
@@ -238,20 +296,44 @@ namespace Lattice
 			_currentStretchChannel = _stretchChannel;
 			_currentTargetMesh = _targetMesh;
 			_currentApplyMethod = _applyMethod;
+			_currentIsStatic = gameObject.isStatic;
 
 			// If still no target mesh, log warning and exit early
 			if (_targetMesh == null)
 			{
-				Debug.LogWarning("No target mesh set. Can not initialise lattice modifier.", this);
+				Debug.LogWarning("No target mesh set. " +
+					"Can not initialise lattice modifier.", this);
 				return;
 			}
 
 			// If not readable, log error and exit early
-			if (!_targetMesh.isReadable)
+			// Can ignore if static as it will be baked before runtime
+			if (!_targetMesh.isReadable && !gameObject.isStatic)
 			{
-				Debug.LogError("Target does not have read/write enabled. Enable it in the model import settings.", _targetMesh);
+				Debug.LogError("Target does not have read/write enabled. Enable it in the model import settings.\n" +
+					"Or set the GameObject to static if intended to be a static mesh.", _targetMesh);
 				return;
 			}
+
+			bool hasUvs = _targetMesh.HasVertexAttribute(VertexAttribute.TexCoord0);
+			bool hasNormals = _targetMesh.HasVertexAttribute(VertexAttribute.Normal);
+			bool hasTangents = _targetMesh.HasVertexAttribute(VertexAttribute.Tangent);
+
+#if UNITY_EDITOR
+			if ((_applyMethod > ApplyMethod.PositionOnly) && !hasUvs && hasTangents && hasNormals)
+			{
+				string assetPath = UnityEditor.AssetDatabase.GetAssetPath(_targetMesh);
+				if (!string.IsNullOrEmpty(assetPath) && (UnityEditor.AssetImporter.GetAtPath(assetPath) is UnityEditor.ModelImporter importer))
+				{
+					if (importer.importTangents == UnityEditor.ModelImporterTangents.CalculateMikk)
+					{
+						Debug.LogWarning("Mesh normals may appear incorrect when using 'Calculate Mikktspace' without UV mapping.\n" +
+							"To fix, set 'Tangents' to 'Calculate Legacy' within the model import settings.\n" +
+							"Unfortunately Unity assumes tangents aren't required if there is no UV mapping, which is not true in this case.", _targetMesh);
+					}
+				}
+			}
+#endif
 
 			// Create a copy which the lattice will be applied to
 			_mesh = Instantiate(_targetMesh);
@@ -259,24 +341,23 @@ namespace Lattice
 			_mesh.name = _targetMesh.name + " (Lattice)";
 			_mesh.vertexBufferTarget |= BufferTargets;
 
-			bool hasNormals = _mesh.HasVertexAttribute(VertexAttribute.Normal);
-			bool hasTangents = _mesh.HasVertexAttribute(VertexAttribute.Tangent);
-
-			_actualApplyMethod = _applyMethod;
+			_resolvedApplyMethod = _applyMethod;
 
 			if ((_applyMethod > ApplyMethod.PositionOnly) && (!hasNormals || !hasTangents))
 			{
 				if (_applyMethod == ApplyMethod.PositionNormalTangent)
 				{
-					Debug.LogWarning("Cannot deform normals and tangents if the mesh does not have normals and tangents.");
+					Debug.LogWarning("Cannot deform normals and tangents if " +
+						"the mesh does not have normals and tangents.", this);
 				}
 
 				if (_applyMethod == ApplyMethod.Stretch)
 				{
-					Debug.LogWarning("Cannot apply stretch if the mesh does not have normals and tangents.");
+					Debug.LogWarning("Cannot apply stretch if the mesh does " +
+						"not have normals and tangents.", this);
 				}
 
-				_actualApplyMethod = ApplyMethod.PositionOnly;
+				_resolvedApplyMethod = ApplyMethod.PositionOnly;
 			}
 
 			// Add at least one bone
@@ -306,7 +387,7 @@ namespace Lattice
 			}
 
 			// Add stretch and squish vertex channel
-			if (_actualApplyMethod == ApplyMethod.Stretch)
+			if (_resolvedApplyMethod == ApplyMethod.Stretch)
 			{
 				// Create stretch array of all ones
 				Vector2[] stretch = new Vector2[_mesh.vertexCount];
@@ -365,27 +446,6 @@ namespace Lattice
 
 		#region Unity Methods
 
-#if UNITY_EDITOR
-		private void Update()
-		{
-			// If target mesh, apply method, or stretch channel have changed in inspector
-			if ((_targetMesh != _currentTargetMesh) ||
-				(_applyMethod != _currentApplyMethod) ||
-				(_stretchChannel != _currentStretchChannel))
-			{
-				// Reset component
-				OnDisable();
-				OnEnable();
-			}
-
-			// Ensure mesh on the renderer is the lattice affected one
-			if ((_mesh != null) && (_mesh != GetMesh()))
-			{
-				ApplyMesh();
-			}
-		}
-#endif
-
 		private void LateUpdate()
 		{
 			EnqueueIfNeeded(false);
@@ -406,7 +466,49 @@ namespace Lattice
 			ResetMesh();
 			Release();
 		}
-		
+
+#if UNITY_EDITOR
+		private void Update()
+		{
+			// If target mesh, apply method, stretch channel, or isStatic have changed in inspector
+			if ((_targetMesh != _currentTargetMesh) ||
+				(_applyMethod != _currentApplyMethod) ||
+				(_stretchChannel != _currentStretchChannel) ||
+				(gameObject.isStatic != _currentIsStatic))
+			{
+				// Reset component
+				OnEnable();
+			}
+
+			// Don't reset mesh back if lightmapping
+			if (gameObject.isStatic && UnityEditor.Lightmapping.isRunning)
+				return;
+
+			// Ensure mesh on the renderer is the lattice affected one
+			if ((_mesh != null) && (_mesh != GetMesh()))
+			{
+				ApplyMesh();
+			}
+		}
+
+		private void OnValidate()
+		{
+			// Reset mesh when selecting a prefab, this ensures there is a
+			// mesh shown in prefab previews
+			if (UnityEditor.PrefabUtility.IsPartOfPrefabAsset(this))
+			{
+				void OnPreview()
+				{
+					UnityEditor.EditorApplication.update -= OnPreview;
+
+					if ((this != null) && enabled) ResetMesh();
+				}
+
+				UnityEditor.EditorApplication.update += OnPreview;
+			}
+		}
+#endif
+
 		#endregion
 
 		#region Serialization

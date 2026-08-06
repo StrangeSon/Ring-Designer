@@ -28,6 +28,7 @@ namespace HTraceAO.Scripts.Editor
 	{
 		private const string NO_RENDERER_FEATURE_MESSAGE  = "HTrace Ambient Occlusion feature is missing in the active URP renderer.";
 		private const string RENDERER_FEATURE_OFF_MESSAGE = "HTrace Ambient Occlusion is disabled in the active URP renderer.";
+		private const string RT_IS_NOT_SUPPORTED_MESSAGE = "Realtime Raytracing is not supported!";
 
 		private Texture2D m_Icon;
 
@@ -168,6 +169,16 @@ namespace HTraceAO.Scripts.Editor
 
 		public override void OnInspectorGUI()
 		{
+			if (m_Icon != null)
+			{
+				//GUILayout.Label(m_Icon, HEditorStyles.icon, GUILayout.ExpandWidth(false));
+				Rect rect = GUILayoutUtility.GetAspectRect((float)m_Icon.width / m_Icon.height);
+				rect.xMin += 4;
+				rect.xMax -= 4;
+				GUI.DrawTexture(rect, m_Icon, ScaleMode.ScaleToFit);
+				EditorGUILayout.Space(5f);
+			}
+
 			var htraceAoRendererFeature = HRendererURP.GetRendererFeatureByTypeName(nameof(HTraceAORendererFeature)) as HTraceAORendererFeature;
 			if (htraceAoRendererFeature == null)
 			{
@@ -191,14 +202,10 @@ namespace HTraceAO.Scripts.Editor
 				EditorGUILayout.Space();
 			}
 
-			if (m_Icon != null)
+			if ((AmbientOcclusionMode)p_AmbientOcclusionMode.value.enumValueIndex == AmbientOcclusionMode.RTAO)
 			{
-				//GUILayout.Label(m_Icon, HEditorStyles.icon, GUILayout.ExpandWidth(false));
-				Rect rect = GUILayoutUtility.GetAspectRect((float)m_Icon.width / m_Icon.height);
-				rect.xMin += 4;
-				rect.xMax -= 4;
-				GUI.DrawTexture(rect, m_Icon, ScaleMode.ScaleToFit);
-				EditorGUILayout.Space(5f);
+				if (HRenderer.SupportsInlineRayTracing == false) // URP has only Inline Raytracing, but we output realtime RT error to avoid confusing users
+					EditorGUILayout.HelpBox(RT_IS_NOT_SUPPORTED_MESSAGE, MessageType.Error);
 			}
 
 			// ------------------------------------- Global settings ----------------------------------------------------------

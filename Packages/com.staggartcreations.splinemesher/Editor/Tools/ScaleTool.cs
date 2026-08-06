@@ -2,6 +2,7 @@
 // Copyright protected under Unity Asset Store EULA
 // Copying or referencing source code for the production of new asset store, or public content, is strictly prohibited!
 
+using System;
 using sc.modeling.splines.runtime;
 using UnityEditor;
 using UnityEditor.EditorTools;
@@ -228,6 +229,15 @@ namespace sc.modeling.splines.editor
                     Handles.DrawAAPolyLine(Texture2D.whiteTexture, 3f, new []{position, y});
                 }
                 height = Handles.Slider(id2, y, up, k_HandleSize * handleScale, CustomHandleCap, 0);
+
+                if (GUIUtility.hotControl == id)
+                {
+                    RollTool.DrawLabel(position, $"X: {Math.Round(inValue.x, 4)}");
+                }
+                if (GUIUtility.hotControl == id2)
+                {
+                    RollTool.DrawLabel(position, $"Y: {Math.Round(inValue.y, 4)}");
+                }
             }
 
             if (GUIUtility.hotControl == id && math.abs(width.x - x.x) > 0f)
@@ -276,6 +286,8 @@ namespace sc.modeling.splines.editor
         public override VisualElement CreatePanelContent()
         {
             var root = new VisualElement();
+            
+            this.displayName = "Spline Scale Tool";
             
             Toggle uniformScaling = new Toggle("Uniform scaling")
             {

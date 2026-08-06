@@ -24,6 +24,12 @@ namespace HTraceAO.Scripts.Extensions
 			passTextureHandle = outputTarget;
 			builder.UseTexture(outputTarget, accessFlags);
 		}
+		public static void UseTexture(IRasterRenderGraphBuilder builder, RenderGraph renderGraph, RTHandle targetTexture, ref TextureHandle passTextureHandle, AccessFlags accessFlags =  AccessFlags.ReadWrite)
+		{
+			TextureHandle outputTarget = renderGraph.ImportTexture(targetTexture);
+			passTextureHandle = outputTarget;
+			builder.UseTexture(outputTarget, accessFlags);
+		}
 #endif //UNITY_2023_3_OR_NEWER
 
 		public static void ReAllocateIfNeeded(string name, ref RTHandle rtHandle, ref RenderTextureDescriptor inputDescriptor, int width = -1, int height = -1,

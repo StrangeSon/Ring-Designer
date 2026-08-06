@@ -20,10 +20,15 @@ namespace HTraceAO.Scripts.Passes.URP
 {
 	internal class RTAOPassURP : ScriptableRenderPass
 	{
+		private const string RT_IS_NOT_SUPPORTED_MESSAGE = "Realtime RayTracing is not supported!";
+		private const string INLINE_RT_IS_NOT_SUPPORTED_MESSAGE = "Inline RayTracing is not supported!";
 		private static readonly int CameraNormalsTexture = Shader.PropertyToID("_CameraNormalsTexture");
+		
+		ProfilingSampler RtaoSampler = new ProfilingSampler(HNames.HTRACE_RTAO_PASS_NAME);
 
 		#region --------------------------- Non Render Graph ---------------------------
 
+#if !UNITY_6000_4_OR_NEWER
 		private ScriptableRenderer _renderer;
 
 		protected internal void Initialize(ScriptableRenderer renderer)
@@ -61,6 +66,17 @@ namespace HTraceAO.Scripts.Passes.URP
 			if (Shader.GetGlobalTexture(CameraNormalsTexture) == null)
 				return;
 
+			if (HRenderer.SupportsInlineRayTracing == false) // URP has only Inline Raytracing, but we output realtime RT error to avoid confusing users
+			{
+				HExtensions.DebugPrint(DebugType.Error,RT_IS_NOT_SUPPORTED_MESSAGE);
+				cmd.SetGlobalVector(HShaderParams.AmbientOcclusionParam, new Vector4(0.0f, 0.0f, 0.0f, 0.0f));
+
+				context.ExecuteCommandBuffer(cmd);
+				cmd.Clear();
+				CommandBufferPool.Release(cmd);
+				return;
+			}
+
 			RTAO.Execute(cmd, camera, width, height);
 
 			context.ExecuteCommandBuffer(cmd);
@@ -68,6 +84,7 @@ namespace HTraceAO.Scripts.Passes.URP
 			CommandBufferPool.Release(cmd);
 			return;
 		}
+#endif
 
 		#endregion --------------------------- Non Render Graph ---------------------------
 
@@ -82,7 +99,7 @@ namespace HTraceAO.Scripts.Passes.URP
 		public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
 		{
 
-			using (var builder = renderGraph.AddUnsafePass<PassData>(HNames.HTRACE_RTAO_PASS_NAME, out var passData, new ProfilingSampler(HNames.HTRACE_RTAO_PASS_NAME)))
+			using (var builder = renderGraph.AddUnsafePass<PassData>(HNames.HTRACE_RTAO_PASS_NAME, out var passData, RtaoSampler))
 			{
 				UniversalResourceData  resourceData           = frameData.Get<UniversalResourceData>();
 				UniversalCameraData    universalCameraData    = frameData.Get<UniversalCameraData>();
@@ -97,6 +114,8 @@ namespace HTraceAO.Scripts.Passes.URP
 				Camera                  camera      = universalCameraData.camera;
 				float                   renderScale = universalCameraData.renderScale;
 				RenderTextureDescriptor desc        = universalCameraData.cameraTargetDescriptor;
+				
+				RTAO.CameraHistorySystem.SyncCamera(universalCameraData.camera.GetHashCode(), Time.frameCount);
 
 				SetupShared(camera, renderScale, desc);
 
@@ -112,6 +131,14 @@ namespace HTraceAO.Scripts.Passes.URP
 			float renderScale = data.UniversalCameraData.renderScale;
 			int width  = (int)(camera.scaledPixelWidth * renderScale);
 			int height = (int)(camera.scaledPixelHeight * renderScale);
+
+			if (HRenderer.SupportsInlineRayTracing == false) // URP has only Inline Raytracing, but we output realtime RT error to avoid confusing users
+			{
+				HExtensions.DebugPrint(DebugType.Error,RT_IS_NOT_SUPPORTED_MESSAGE);
+				cmd.SetGlobalVector(HShaderParams.AmbientOcclusionParam, new Vector4(0.0f, 0.0f, 0.0f, 0.0f));
+
+				return;
+			}
 
 			RTAO.Execute(cmd, camera, width, height);
 		}
@@ -167,8 +194,6 @@ namespace HTraceAO.Scripts.Passes.URP
 			cameraData.NormalHistory_RTAO.ReAllocateIfNeeded(RTAO._NormalHistory,  ref desc, graphicsFormat: GraphicsFormat.R8G8B8A8_UNorm);
 			cameraData.OcclusionHistory_RTAO.ReAllocateIfNeeded(RTAO._OcclusionHistory, ref desc, graphicsFormat: GraphicsFormat.R32_UInt);
 
-			cameraData.SetHash(camera.GetHashCode());
-
 			if (RTAO.RayCounter == null)
 			{
 				RTAO.RayCounter = new ComputeBuffer(2 * HRenderer.TextureXrSlices, sizeof(uint));
@@ -201,9 +226,7 @@ namespace HTraceAO.Scripts.Passes.URP
 
 		protected internal void Dispose()
 		{
-			RTAO.HistoryCameraDataRTAO historyCameraDataRtao = RTAO.CameraHistorySystem.GetCameraData();
-			historyCameraDataRtao.NormalHistory_RTAO?.HRelease();
-			historyCameraDataRtao.OcclusionHistory_RTAO?.HRelease();
+			RTAO.CameraHistorySystem.Cleanup();
 
 			RTAO.Occlusion_RTAO?.HRelease();
 			RTAO.OcclusionFiltered_RTAO?.HRelease();

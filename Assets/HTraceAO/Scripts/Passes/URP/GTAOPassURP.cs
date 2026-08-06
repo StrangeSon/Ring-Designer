@@ -21,9 +21,12 @@ namespace HTraceAO.Scripts.Passes.URP
 	internal class GTAOPassURP : ScriptableRenderPass
 	{
 		private static readonly int CameraNormalsTexture = Shader.PropertyToID("_CameraNormalsTexture");
+		
+		ProfilingSampler GtaoSampler = new ProfilingSampler(HNames.HTRACE_GTAO_PASS_NAME);
 
 		#region --------------------------- Non Render Graph ---------------------------
 
+#if !UNITY_6000_4_OR_NEWER
 		private ScriptableRenderer _renderer;
 
 		protected internal void Initialize(ScriptableRenderer renderer)
@@ -36,8 +39,7 @@ namespace HTraceAO.Scripts.Passes.URP
 #endif
 		public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
 		{
-			GTAO.CameraHistorySystem.UpdateCameraHistoryIndex(renderingData.cameraData.camera.GetHashCode());
-			GTAO.CameraHistorySystem.UpdateCameraHistoryData();
+			GTAO.CameraHistorySystem.SyncCamera(renderingData.cameraData.camera.GetHashCode(), Time.frameCount);
 
 			SetupShared(renderingData.cameraData.camera, renderingData.cameraData.renderScale, renderingData.cameraData.cameraTargetDescriptor);
 		}
@@ -71,6 +73,7 @@ namespace HTraceAO.Scripts.Passes.URP
 			CommandBufferPool.Release(cmd);
 			return;
 		}
+#endif
 
 		#endregion --------------------------- Non Render Graph ---------------------------
 
@@ -85,7 +88,7 @@ namespace HTraceAO.Scripts.Passes.URP
 		public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
 		{
 
-			using (var builder = renderGraph.AddUnsafePass<PassData>(HNames.HTRACE_GTAO_PASS_NAME, out var passData, new ProfilingSampler(HNames.HTRACE_GTAO_PASS_NAME)))
+			using (var builder = renderGraph.AddUnsafePass<PassData>(HNames.HTRACE_GTAO_PASS_NAME, out var passData, GtaoSampler))
 			{
 				UniversalResourceData  resourceData           = frameData.Get<UniversalResourceData>();
 				UniversalCameraData    universalCameraData    = frameData.Get<UniversalCameraData>();
@@ -96,6 +99,8 @@ namespace HTraceAO.Scripts.Passes.URP
 				builder.AllowPassCulling(false);
 
 				passData.UniversalCameraData = universalCameraData;
+
+				GTAO.CameraHistorySystem.SyncCamera(universalCameraData.camera.GetHashCode(), Time.frameCount);
 
 				SetupShared(universalCameraData.camera, universalCameraData.renderScale, universalCameraData.cameraTargetDescriptor);
 
@@ -162,8 +167,6 @@ namespace HTraceAO.Scripts.Passes.URP
 			cameraData.NormalHistory_GTAO.ReAllocateIfNeeded(GTAO._NormalHistory,  ref desc, graphicsFormat: GraphicsFormat.R8G8B8A8_UNorm);
 			cameraData.OcclusionHistory_GTAO.ReAllocateIfNeeded(GTAO._OcclusionHistory, ref desc, graphicsFormat: GraphicsFormat.R32_UInt);
 
-			cameraData.SetHash(camera.GetHashCode());
-
 			if (GTAO.RayCounter == null)
 			{
 				GTAO.RayCounter = new ComputeBuffer(2 * HRenderer.TextureXrSlices, sizeof(uint));
@@ -177,9 +180,7 @@ namespace HTraceAO.Scripts.Passes.URP
 
 		protected internal void Dispose()
 		{
-			GTAO.HistoryCameraDataGTAO historyCameraDataGtao = GTAO.CameraHistorySystem.GetCameraData();
-			historyCameraDataGtao.NormalHistory_GTAO?.HRelease();
-			historyCameraDataGtao.OcclusionHistory_GTAO?.HRelease();
+			GTAO.CameraHistorySystem.Cleanup();
 
 			GTAO.DepthPyramidRT?.HRelease();
 			GTAO.Occlusion_GTAO?.HRelease();

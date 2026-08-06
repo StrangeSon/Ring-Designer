@@ -25,7 +25,9 @@ namespace HTraceAO.Scripts.Infrastructure.URP
 	{
 		public HTraceAOVolume()
 		{
+#pragma warning disable CS0618
 			displayName = HNames.ASSET_NAME_FULL;
+#pragma warning restore CS0618
 		}
 
 		/// <summary>

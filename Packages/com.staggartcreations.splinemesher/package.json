@@ -1,12 +1,12 @@
 {
-  "displayName": "Spline Mesher",
-  "name": "com.staggartcreations.splinemesher",
+  "displayName": "Spline Mesher - Standard",
+  "name": "xyz.staggart-creations.splinemesher-standard",
   "description": "Spline-based mesh deformation tool",
-  "version": "1.2.2",
+  "version": "1.4.0",
   "unity": "2021.3",
   "unityRelease": "15f1",
   "dependencies": {
-    "com.unity.splines": "2.4.0",
+    "com.unity.splines": "2.8.1",
     "com.unity.mathematics": "1.2.6"
   },
   "author": {

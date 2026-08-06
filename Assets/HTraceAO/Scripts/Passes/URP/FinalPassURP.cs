@@ -21,6 +21,8 @@ namespace HTraceAO.Scripts.Passes.URP
 	{
 		const   string   _OutputTarget = "_OutputTarget";
 		private static string s_motionVectorsKeyword = "MOTION_VECTORS";
+		
+		ProfilingSampler FinalPassSampler = new ProfilingSampler(HNames.HTRACE_FINAL_PASS_NAME);
 
 		// Buffers & etc
 		internal static ComputeShader HDebug = null;
@@ -28,10 +30,10 @@ namespace HTraceAO.Scripts.Passes.URP
 		// Textures
 		internal static RTHandle OutputTarget;
 
-
-		private ScriptableRenderer _renderer;
-
 		#region --------------------------- Non Render Graph ---------------------------
+
+#if !UNITY_6000_4_OR_NEWER
+		private ScriptableRenderer _renderer;
 
 		protected internal void Initialize(ScriptableRenderer renderer)
 		{
@@ -75,6 +77,7 @@ namespace HTraceAO.Scripts.Passes.URP
 			cmd.Clear();
 			CommandBufferPool.Release(cmd);
 		}
+#endif
 
 		#endregion --------------------------- Non Render Graph ---------------------------
 
@@ -90,7 +93,7 @@ namespace HTraceAO.Scripts.Passes.URP
 	    public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
 	    {
 
-			using (var builder = renderGraph.AddUnsafePass<PassData>(HNames.HTRACE_FINAL_PASS_NAME, out var passData, new ProfilingSampler(HNames.HTRACE_FINAL_PASS_NAME)))
+			using (var builder = renderGraph.AddUnsafePass<PassData>(HNames.HTRACE_FINAL_PASS_NAME, out var passData, FinalPassSampler))
 			{
 				UniversalResourceData  resourceData           = frameData.Get<UniversalResourceData>();
 				UniversalCameraData    universalCameraData    = frameData.Get<UniversalCameraData>();
@@ -169,6 +172,8 @@ namespace HTraceAO.Scripts.Passes.URP
 
 			    if (HSettings.GeneralSettings.AmbientOcclusionMode == AmbientOcclusionMode.SSAO)
 			    {
+				    cmd.SetGlobalTexture(HShaderParams.g_HTraceMotionVectors, HRenderer.EmptyTexture);
+				    cmd.SetGlobalTexture(HShaderParams.g_HTraceMotionMask, HRenderer.EmptyTexture);
 				    cmd.SetComputeIntParams(HDebug, HShaderParams.DebugSwitch, (int)HSettings.SSAOSettings.DebugModeSSAO);
 			    }
 

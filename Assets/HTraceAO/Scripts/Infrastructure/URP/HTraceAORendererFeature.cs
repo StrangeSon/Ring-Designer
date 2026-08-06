@@ -12,9 +12,15 @@ using UnityEngine.Rendering.Universal;
 
 namespace HTraceAO.Scripts.Infrastructure.URP
 {
+    [DisallowMultipleRendererFeature]
 	[ExecuteAlways]
 	[HelpURL(HNames.HTRACE_AO_DOCUMENTATION_LINK)]
-	public class HTraceAORendererFeature : ScriptableRendererFeature
+	public class HTraceAORendererFeature :  
+#if UNITY_2022
+		ScriptableRendererFeature
+#else
+		ScreenSpaceAmbientOcclusion
+#endif
 	{
 		// #region UI Part
 		//
@@ -50,14 +56,23 @@ namespace HTraceAO.Scripts.Infrastructure.URP
 			name = HNames.HTRACE_RENDERER_FEATURE_NAME;
 			Dispose();
 
-			var            stack          = VolumeManager.instance.stack;
-			HTraceAOVolume hTraceAOVolume = stack.GetComponent<HTraceAOVolume>();
-			_previousAmbientOcclusionMode = hTraceAOVolume != null ? hTraceAOVolume.AmbientOcclusionMode.value : AmbientOcclusionMode.GTAO;
-			SettingsBuild(hTraceAOVolume);
+			if (VolumeManager.instance == null)
+				return;
 
+			var stack = VolumeManager.instance.stack;
+			if (stack == null)
+				return;
+			
+			HTraceAOVolume hTraceAOVolume = stack.GetComponent<HTraceAOVolume>();
+			if (hTraceAOVolume == null)
+				return;
+
+			SettingsBuild(hTraceAOVolume);
+			_previousAmbientOcclusionMode = hTraceAOVolume.AmbientOcclusionMode.value;
+			
 			_prePass                       = new PrePassURP();
 			_prePass.renderPassEvent       = RenderPassEvent.BeforeRenderingDeferredLights;
-			switch (_previousAmbientOcclusionMode)
+			switch (hTraceAOVolume.AmbientOcclusionMode.value)
 			{
 				case AmbientOcclusionMode.SSAO:
 					_ssaoPass                      = new SSAOPassURP();
@@ -82,12 +97,16 @@ namespace HTraceAO.Scripts.Infrastructure.URP
 			_initialized = true;
 		}
 		
+#if !UNITY_6000_4_OR_NEWER
 		/// <summary>
 		/// Called when render targets are allocated and ready to be used.
 		/// </summary>
 		/// <param name="renderer"></param>
 		/// <param name="renderingData"></param>
 		/// <!--https://docs.unity3d.com/Packages/com.unity.render-pipelines.universal@13.1/manual/upgrade-guide-2022-1.html-->
+#if UNITY_6000_3_OR_NEWER
+		[System.Obsolete]
+#endif
 		public override void SetupRenderPasses(ScriptableRenderer renderer, in RenderingData renderingData)
 		{
 			if (_initialized == false)
@@ -95,8 +114,25 @@ namespace HTraceAO.Scripts.Infrastructure.URP
 			
 			if (HRenderer.RenderGraphEnabled == false)
 			{
+				if (VolumeManager.instance == null)
+					return;
+
+				var stack = VolumeManager.instance.stack;
+				if (stack == null)
+					return;
+				
+				HTraceAOVolume hTraceAOVolume = stack.GetComponent<HTraceAOVolume>();
+				if (hTraceAOVolume == null)
+					return;
+
+				if (_previousAmbientOcclusionMode != hTraceAOVolume.AmbientOcclusionMode.value || _initialized == false)
+				{
+					Create();
+				}
+
+				SettingsBuild(hTraceAOVolume);
 				_prePass.Initialize(renderer);
-				switch (HSettings.GeneralSettings.AmbientOcclusionMode)
+				switch (hTraceAOVolume.AmbientOcclusionMode.value)
 				{
 					case AmbientOcclusionMode.SSAO:
 						_ssaoPass.Initialize(renderer);
@@ -113,6 +149,7 @@ namespace HTraceAO.Scripts.Infrastructure.URP
 				_finalPass.Initialize(renderer);	
 			}
 		}
+#endif
 
 		/// <summary>
 		/// Injects one or multiple ScriptableRenderPass in the renderer.
@@ -121,29 +158,31 @@ namespace HTraceAO.Scripts.Infrastructure.URP
 		/// <param name="renderingData"></param>
 		public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
 		{
-			Shader.DisableKeyword("_SCREEN_SPACE_OCCLUSION");
-			Shader.DisableKeyword(HNames.KEYWORD_SWITCHER);
-			Shader.SetGlobalInt(HNames.INT_SWITCHER, 0);
+			Shader.DisableKeyword(HShaderParams._SCREEN_SPACE_OCCLUSION);
 			
 			if (renderingData.cameraData.cameraType == CameraType.Reflection || renderingData.cameraData.cameraType == CameraType.Preview)
 				return;
 			
-			var            stack          = VolumeManager.instance.stack;
+			if (VolumeManager.instance == null)
+				return;
+
+			var stack = VolumeManager.instance.stack;
+			if (stack == null)
+				return;
+			
 			HTraceAOVolume hTraceAOVolume = stack.GetComponent<HTraceAOVolume>();
 			bool           isActive       = hTraceAOVolume != null && hTraceAOVolume.IsActive();
 			
 			if (!isActive)
 				return;
 			
-			Shader.EnableKeyword("_SCREEN_SPACE_OCCLUSION"); //HTraceAO specific
-			Shader.EnableKeyword(HNames.KEYWORD_SWITCHER);
-			Shader.SetGlobalInt(HNames.INT_SWITCHER, 1);
+			Shader.EnableKeyword(HShaderParams._SCREEN_SPACE_OCCLUSION); //HTraceAO specific
 
 			SettingsBuild(hTraceAOVolume);
 			
 #if !UNITY_2022_1_OR_NEWER
 			_prePass.Initialize(renderer);
-			switch (HSettings.GeneralSettings.AmbientOcclusionMode)
+			switch (hTraceAOVolume.AmbientOcclusionMode.value)
 			{
 				case AmbientOcclusionMode.SSAO:
 					_ssaoPass.Initialize(renderer);
@@ -159,13 +198,13 @@ namespace HTraceAO.Scripts.Infrastructure.URP
 			}
 			_finalPass.Initialize(renderer);
 #endif
-			if (_previousAmbientOcclusionMode != HSettings.GeneralSettings.AmbientOcclusionMode)
+			if (_previousAmbientOcclusionMode != hTraceAOVolume.AmbientOcclusionMode.value || _initialized == false)
 			{
 				Create();
 			}
 
 			renderer.EnqueuePass(_prePass);
-			switch (HSettings.GeneralSettings.AmbientOcclusionMode)
+			switch (hTraceAOVolume.AmbientOcclusionMode.value)
 			{
 				case AmbientOcclusionMode.SSAO:
 					renderer.EnqueuePass(_ssaoPass);
@@ -183,7 +222,7 @@ namespace HTraceAO.Scripts.Infrastructure.URP
 			}
 			renderer.EnqueuePass(_finalPass);
 
-			_previousAmbientOcclusionMode = HSettings.GeneralSettings.AmbientOcclusionMode;
+			_previousAmbientOcclusionMode = hTraceAOVolume.AmbientOcclusionMode.value;
 		}
 
 		private void SettingsBuild(HTraceAOVolume hTraceAOVolume)
@@ -271,9 +310,7 @@ namespace HTraceAO.Scripts.Infrastructure.URP
 
 			_initialized = false;
 			
-			Shader.DisableKeyword("_SCREEN_SPACE_OCCLUSION");
-			Shader.DisableKeyword(HNames.KEYWORD_SWITCHER);
-			Shader.SetGlobalInt(HNames.INT_SWITCHER, 0);
+			Shader.DisableKeyword(HShaderParams._SCREEN_SPACE_OCCLUSION);
 		}
 	}
 }

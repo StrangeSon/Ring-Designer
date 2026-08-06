@@ -1,6 +1,7 @@
 //pipelinedefine
 #define H_URP
 
+using System;
 using HTraceAO.Scripts.Data.Private;
 using HTraceAO.Scripts.Extensions;
 using HTraceAO.Scripts.Extensions.CameraHistorySystem;
@@ -101,7 +102,7 @@ namespace HTraceAO.Scripts.Passes.Shared.AO
 		internal static ProfilingSamplerHTrace InterpolationSampler                     = new ProfilingSamplerHTrace(HNames.INTERPOLATION_SAMPLER,            parentName: HNames.HTRACE_GTAO_PASS_NAME, order: 5);
 
 
-		internal struct HistoryCameraDataGTAO : ICameraHistoryData
+		internal struct HistoryCameraDataGTAO : ICameraHistoryData, IDisposable
 		{
 			private int hash;
 			public RTWrapper NormalHistory_GTAO;
@@ -116,6 +117,12 @@ namespace HTraceAO.Scripts.Passes.Shared.AO
 
 			public int GetHash() => hash;
 			public void SetHash(int hashIn) => this.hash = hashIn;
+
+			public void Dispose()
+			{
+				NormalHistory_GTAO?.HRelease();
+				OcclusionHistory_GTAO?.HRelease();
+			}
 		}
 
 		internal static readonly CameraHistorySystem<HistoryCameraDataGTAO> CameraHistorySystem = new CameraHistorySystem<HistoryCameraDataGTAO>();

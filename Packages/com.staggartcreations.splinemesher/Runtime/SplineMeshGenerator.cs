@@ -60,8 +60,7 @@ namespace sc.modeling.splines.runtime
         private static float3 boundsMax;
         
         private static float4x4 splineLocalToWorld;
-
-        public static readonly Interpolators.LerpFloat3 Float3Interpolator = new Interpolators.LerpFloat3();
+        
         public static readonly Interpolators.LerpFloat FloatInterpolator = new Interpolators.LerpFloat();
 
         private static int CalculateSegmentCount(Settings settings, float splineLength, float meshLength, bool closed)
@@ -94,6 +93,7 @@ namespace sc.modeling.splines.runtime
         /// <summary>
         /// Tiles and deforms the sourceMesh along splines within the container
         /// </summary>
+        /// <param name="outputMesh"></param>
         /// <param name="splineContainer"></param>
         /// <param name="sourceMesh">Input mesh</param>
         /// <param name="worldToLocalMatrix">Transform matrix of the renderer the mesh is to be used on</param>
@@ -106,16 +106,16 @@ namespace sc.modeling.splines.runtime
         /// <param name="alphaVertexColor"></param>
         /// <returns></returns>
         /// <exception cref="Exception">Bails out if the spline is too short</exception>
-        public static Mesh CreateMesh(SplineContainer splineContainer, Mesh sourceMesh, float4x4 worldToLocalMatrix, Settings settings, 
+        public static Mesh CreateMesh(ref Mesh outputMesh, SplineContainer splineContainer, Mesh sourceMesh, float4x4 worldToLocalMatrix, Settings settings, 
             List<SplineData<float3>> scaleData = null, 
             List<SplineData<float>> rollData = null,
+            List<SplineData<float>> conformingStrength = null,
             List<SplineData<SplineMesher.VertexColorChannel>> redVertexColor = null,
             List<SplineData<SplineMesher.VertexColorChannel>> greenVertexColor = null,
             List<SplineData<SplineMesher.VertexColorChannel>> blueVertexColor = null,
             List<SplineData<SplineMesher.VertexColorChannel>> alphaVertexColor = null
             )
         {
-            Mesh outputMesh = new Mesh();
             int submeshCount = sourceMesh.subMeshCount;
             
             var splineCount = splineContainer.Splines.Count;
@@ -162,6 +162,7 @@ namespace sc.modeling.splines.runtime
 
             bool hasScaleData = scaleData != null;
             bool hasRollData = rollData != null;
+            bool hasConformingData = conformingStrength != null;
             bool hasRedColorData = redVertexColor != null;
             bool hasGreenColorData = greenVertexColor != null;
             bool hasBlueColorData = blueVertexColor != null;
@@ -356,9 +357,11 @@ namespace sc.modeling.splines.runtime
                                 //Important to not attempt to sample empty data, as this results in a scale of (0,0,0)
                                 if (scaleData[splineIndex].Count > 0)
                                 {
+                                    SplineMesher.scaleInterpolator.mode = settings.deforming.scaleInterpolation;
+                                    
                                     splineScale = scaleData[splineIndex].Evaluate(spline, 
                                         spline.ConvertIndexUnit(distance, PathIndexUnit.Distance, settings.deforming.scalePathIndexUnit), 
-                                        settings.deforming.scalePathIndexUnit, Float3Interpolator);
+                                        settings.deforming.scalePathIndexUnit, SplineMesher.scaleInterpolator);
                                 }
                             }
 
@@ -438,25 +441,37 @@ namespace sc.modeling.splines.runtime
                             //Vertex position in spline's local space to world-space
                             float3 positionWS = math.transform(splineLocalToWorld, splinePoint);
 
-                            if (PerformConforming(positionWS, settings.conforming, meshHeight, out float3 hitPosition, out float3 hitNormal))
+                            if (PerformConforming(positionWS, settings.conforming.direction == Settings.Conforming.Direction.StraightDown ? -math.up() : -up, settings.conforming, meshHeight, out float3 hitPosition, out float3 hitNormal))
                             {
-                                //Convert information from world-space back to spline's local space
-                                hitPosition = splineContainer.transform.InverseTransformPoint(hitPosition);
-                                hitNormal = splineContainer.transform.InverseTransformVector(hitNormal);
-                    
-                                splinePoint.y = hitPosition.y;
+                                float strength = 1.0f;
 
-                                quaternion hitRotation = quaternion.LookRotationSafe(tangent, hitNormal);
-
-                                //Copy normal of surface, to be used for deforming
-                                if (settings.conforming.align)
+                                if (hasConformingData && conformingStrength[splineIndex].Count > 0)
                                 {
-                                    rotation = hitRotation;
+                                    strength = conformingStrength[splineIndex].Evaluate(spline, 
+                                        spline.ConvertIndexUnit(t, PathIndexUnit.Normalized, settings.conforming.pathIndexUnit), 
+                                        settings.conforming.pathIndexUnit, FloatInterpolator);
                                 }
-            
-                                if (settings.conforming.blendNormal)
+                                
+                                if (strength > 0)
                                 {
-                                    normalRotation = hitRotation;
+                                    //Convert information from world-space back to spline's local space
+                                    hitPosition = splineContainer.transform.InverseTransformPoint(hitPosition);
+                                    hitNormal = splineContainer.transform.InverseTransformVector(hitNormal);
+
+                                    splinePoint = math.lerp(splinePoint, hitPosition, strength);
+
+                                    quaternion hitRotation = quaternion.LookRotationSafe(tangent, hitNormal);
+
+                                    //Copy normal of surface, to be used for deforming
+                                    if (settings.conforming.align)
+                                    {
+                                        rotation = hitRotation;
+                                    }
+
+                                    if (settings.conforming.blendNormal)
+                                    {
+                                        normalRotation = hitRotation;
+                                    }
                                 }
                             }
                             Profiler.EndSample();
@@ -490,29 +505,6 @@ namespace sc.modeling.splines.runtime
                         //Make that the local-space position of the mesh filter
                         vertexPosition = math.mul(worldToLocalMatrix, new float4(vertexPosition, 1.0f)).xyz;
 
-                        //Also transform the normal
-                        float3 vertexNormal = math.rotate(normalRotation, sourceNormals[v]);
-                        
-                        if (hasTangents)
-                        {
-                            float4 sourceTangent = new float4(sourceTangents[v]);
-                            
-                            float3 vertexTangent = math.rotate(normalRotation, sourceTangent.xyz);
-                            
-                            tangents.Add(new float4(vertexTangent, 1.0f));
-                        }
-                        
-                        Profiler.EndSample();
-
-                        //Extend bounds as it expands
-                        boundsMin = math.min(position, boundsMin);
-                        boundsMax = math.max(position, boundsMax);
-                        
-                        //Assign vertex attributes
-                        vertices.Add(vertexPosition);
-                        
-                        normals.Add(vertexNormal);
-                        
                         if (hasUV)
                         {
                             Vector4 uv = sourceUv0[v];
@@ -532,6 +524,37 @@ namespace sc.modeling.splines.runtime
 
                             uv0.Add(uv);
                         }
+                        
+                        //Also transform the normal
+                        float3 vertexNormal = math.rotate(normalRotation, sourceNormals[v]);
+                        
+                        if (hasTangents)
+                        {
+                            float4 sourceTangent = new float4(sourceTangents[v]);
+                            
+                            float3 vertexTangent = math.rotate(normalRotation, sourceTangent.xyz);
+
+                            //Flipping the UV also requires to flip the .w component (bi-tangent)
+                            if (hasUV)
+                            {
+                                if (settings.uv.scale.y < 0)
+                                {
+                                    sourceTangent.w *= -1;
+                                }
+                            }
+                            tangents.Add(new float4(vertexTangent, sourceTangent.w));
+                        }
+                        
+                        Profiler.EndSample();
+
+                        //Extend bounds as it expands
+                        boundsMin = math.min(position, boundsMin);
+                        boundsMax = math.max(position, boundsMax);
+                        
+                        //Assign vertex attributes
+                        vertices.Add(vertexPosition);
+                        normals.Add(vertexNormal);
+                        
                         if(setVertexColor) colors.Add(vertexColor);
                         
                         #if SM_ADDITIONAL_DATA
@@ -592,7 +615,8 @@ namespace sc.modeling.splines.runtime
             Profiler.EndSample();
             
             Profiler.BeginSample("Spline Mesher: Composite Output Mesh");
-
+            
+            outputMesh.Clear();
             outputMesh.indexFormat = vertexCount >= 65535 ? IndexFormat.UInt32 : IndexFormat.UInt16;
             
             //Note: Warning about Instance X being null is attributed to a Spline having a length of 0. Therefor it was counted, but no mesh was created for it.
@@ -613,7 +637,7 @@ namespace sc.modeling.splines.runtime
             return outputMesh;
         }
 
-        public static bool PerformConforming(float3 positionWS, Settings.Conforming settings, float objectHeight, out float3 hitPosition, out float3 hitNormal)
+        public static bool PerformConforming(float3 positionWS, float3 direction, Settings.Conforming settings, float objectHeight, out float3 hitPosition, out float3 hitNormal)
         {
             var validHit = false;
             
@@ -621,20 +645,21 @@ namespace sc.modeling.splines.runtime
 
             hitPosition = float3.zero;
             hitNormal = float3.zero;
-            RaycastHit hit = new RaycastHit();
-            
-            if (Physics.Raycast(positionWS + (math.up() * dist), -math.up(), out hit, dist * 2f, settings.layerMask, QueryTriggerInteraction.Ignore))
+
+            if (Physics.Raycast(positionWS + (-direction * dist), direction, out RaycastHit hit, dist * 2f, settings.layerMask, QueryTriggerInteraction.Ignore))
             {
                 validHit = true;
                 
+                #if TERRAIN_PHYSICS
                 if (settings.terrainOnly)
                 {
                     validHit = hit.collider.GetType() == typeof(TerrainCollider);;
 
                     if (validHit == false) return false;
                 }
+                #endif
 
-                hitPosition = hit.point;
+                hitPosition = hit.point; 
                 hitNormal = hit.normal;
             }
 
@@ -658,9 +683,8 @@ namespace sc.modeling.splines.runtime
                 Vector3[] outputVertices = input.vertices;
                 int vertexCount = outputVertices.Length;
                 Vector3[] outputNormals = input.normals;
-                int[] outputTriangles = input.triangles;
-                int triCount = outputTriangles.Length;
-
+                int submeshCount = input.subMeshCount;
+                
                 Bounds outputBounds = input.bounds;
                 if (rotationAmount > 0.01f)
                 {
@@ -682,10 +706,16 @@ namespace sc.modeling.splines.runtime
                 if (flipX || flipY)
                 {
                     //Reverse triangle order if negatively scaled
-                    var triangleCount = triCount / 3;
-                    for (int j = 0; j < triangleCount; j++)
+                    for (int submeshIndex = 0; submeshIndex < submeshCount; submeshIndex++)
                     {
-                        (outputTriangles[j * 3], outputTriangles[j * 3 + 1]) = (outputTriangles[j * 3 + 1], outputTriangles[j * 3]);
+                        int[] outputTriangles = input.GetTriangles(submeshIndex);
+                        int triCount = outputTriangles.Length;
+                        var triangleCount = triCount / 3;
+                
+                        for (int j = 0; j < triangleCount; j++)
+                        {
+                            (outputTriangles[j * 3], outputTriangles[j * 3 + 1]) = (outputTriangles[j * 3 + 1], outputTriangles[j * 3]);
+                        }
                     }
                     
                     //Rotate normals
@@ -700,8 +730,7 @@ namespace sc.modeling.splines.runtime
                 output.name = input.name;
                 output.SetVertices(outputVertices, 0, vertexCount, MeshUpdateFlags.DontValidateIndices | MeshUpdateFlags.DontRecalculateBounds);
 
-                output.triangles = outputTriangles;
-                
+
                 //output.RecalculateBounds();
                 output.bounds = outputBounds;
                 
@@ -711,6 +740,11 @@ namespace sc.modeling.splines.runtime
                 output.colors = input.colors;
                 output.tangents = input.tangents;
                 output.subMeshCount = input.subMeshCount;
+                
+                for (int submeshIndex = 0; submeshIndex < submeshCount; submeshIndex++)
+                {
+                    output.SetTriangles(input.GetTriangles(submeshIndex), submeshIndex);
+                }
                 
                 //Copy readable state
                 output.UploadMeshData(!input.isReadable);
@@ -723,8 +757,9 @@ namespace sc.modeling.splines.runtime
 
         public static quaternion RollCorrectedRotation(float3 forward)
         {
-            float3 euler = Quaternion.LookRotation(forward, math.up()).eulerAngles;
+			float3 euler = Quaternion.LookRotation(forward, math.up()).eulerAngles;
             return quaternion.AxisAngle(math.up(), euler.y * Mathf.Deg2Rad);
+            //return quaternion.LookRotation(forward, math.up());
         }
 
         private static readonly Vector2[] corners = new[]
@@ -748,7 +783,7 @@ namespace sc.modeling.splines.runtime
             Bounds m_bounds  = sourceMesh.bounds;
             
             Mesh boundsMesh = new Mesh();
-            boundsMesh.name = $"{sourceMesh.name} Bounds";
+            boundsMesh.name = $"{sourceMesh.name} Box";
 
             Vector3 scale = m_bounds.size;
             Vector3 offset = m_bounds.center;
@@ -823,6 +858,7 @@ namespace sc.modeling.splines.runtime
             boundsMesh.SetIndices(mTriangles, MeshTopology.Triangles, 0, false);
             boundsMesh.RecalculateNormals();
             boundsMesh.bounds = m_bounds;
+            //boundsMesh.UploadMeshData(false);
 
             return boundsMesh;
         }

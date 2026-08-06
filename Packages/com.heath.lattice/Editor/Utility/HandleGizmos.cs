@@ -29,6 +29,8 @@ namespace Lattice.Editor
 		private Vector3 _originalPosition = Vector3.zero;
 		private Quaternion _originalRotation = Quaternion.identity;
 		private Vector3 _originalScale = Vector3.one;
+		private Matrix4x4 _originalMatrix = Matrix4x4.identity;
+		private Matrix4x4 _originalInverse = Matrix4x4.identity;
 
 		private Vector3 _previousToolPosition = Vector3.zero;
 		private Quaternion _previousToolRotation = Quaternion.identity;
@@ -73,11 +75,35 @@ namespace Lattice.Editor
 
 		public void Reset()
 		{
-			_originalPosition = _handles.GetPivot();
+			_originalPosition = _handles.GetPivot(Tools.pivotMode);
 			_originalRotation = (Tools.pivotRotation == PivotRotation.Global)
 				? Quaternion.identity
 				: _lattice.transform.rotation;
 			_originalScale = Vector3.one;
+
+			// If using selection relative gizmos, we use lattice deformation to
+			// estimate the rotation at that center of selected handles
+			if (LatticeSettings.SelectionRelativeGizmos)
+			{
+				Vector3 pivot = _handles.GetBasePivot(PivotMode.Center);
+
+				LatticeItem item = new()
+				{
+					Lattice = _lattice,
+					Interpolation = (_handles.Count > 1) 
+						? InterpolationMethod.LinearSharp 
+						: InterpolationMethod.Cubic,
+					Global = true,
+				};
+
+				Matrix4x4 deformed = LatticeSolver.DeformTransform(item, 
+					Matrix4x4.TRS(pivot, _lattice.transform.rotation, Vector3.one));
+
+				_originalRotation = deformed.rotation;
+			}
+
+			_originalMatrix = Matrix4x4.TRS(_originalPosition, _originalRotation, Vector3.one);
+			_originalInverse = _originalMatrix.inverse;
 
 			_previousToolPosition = _originalPosition;
 			_previousToolRotation = _originalRotation;
@@ -248,10 +274,7 @@ namespace Lattice.Editor
 					float weightedAngle = Mathf.Lerp(0, _currentAngle, _weights[coords]);
 					Quaternion rotation = Quaternion.AngleAxis(weightedAngle, _currentAxis);
 
-					if (Tools.pivotRotation == PivotRotation.Local)
-					{
-						rotation = _lattice.transform.rotation * rotation * Quaternion.Inverse(_lattice.transform.rotation);
-					}
+					rotation = _originalRotation * rotation * Quaternion.Inverse(_originalRotation);
 
 					relativePosition = rotation * relativePosition;
 
@@ -284,17 +307,11 @@ namespace Lattice.Editor
 					Vector3 originalPosition = _originalPositions[coords];
 					Vector3 relativePosition = originalPosition - _originalPosition;
 
-					if (Tools.pivotRotation == PivotRotation.Local)
-					{
-						relativePosition = _lattice.transform.InverseTransformVector(relativePosition);
-					}
+					relativePosition = _originalInverse.MultiplyVector(relativePosition);
 
 					relativePosition.Scale(change);
 
-					if (Tools.pivotRotation == PivotRotation.Local)
-					{
-						relativePosition = _lattice.transform.TransformVector(relativePosition);
-					}
+					relativePosition = _originalMatrix.MultiplyVector(relativePosition);
 
 					Vector3 newPosition = Vector3.Lerp(originalPosition, relativePosition + _originalPosition, _weights[coords]);
 					_lattice.SetHandleWorldPosition(coords, newPosition);

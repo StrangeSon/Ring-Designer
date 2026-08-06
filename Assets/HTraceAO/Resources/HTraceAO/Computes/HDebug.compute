@@ -22,7 +22,7 @@ void DebugFinal(uint3 pixCoord)
     {
         if (_BuffersSwitch == 0) // Multi
         {
-            uint2 QuadSize = _ScreenSize / 2;
+            uint2 QuadSize = _ScreenSize.xy / 2;
             uint2 QuadIndex = pixCoord.xy / QuadSize; // (0,0), (1,0), (0,1), (1,1)
             uint2 LocalCoord = pixCoord.xy % QuadSize;
             uint2 SampleCoord = LocalCoord * 2;

@@ -74,14 +74,16 @@ namespace sc.modeling.splines.editor
 
                         Undo.RecordObject(modeler, "Modifying Mesh Roll");
 
-                        int changedIndex = DrawIndexPointHandles(nativeSpline, modeler.rollData[i]);
+                        SplineData<float> splineData = modeler.rollData[i];
+                        
+                        int changedIndex = DrawIndexPointHandles(nativeSpline, splineData);
                         if (changedIndex >= 0)
                         {
                             modeler.Rebuild();
                             modeler.UpdateCaps();
                         }
 
-                        changedIndex = DrawDataPointHandles(nativeSpline, modeler.rollData[i]);
+                        changedIndex = DrawDataPointHandles(nativeSpline, splineData);
                         if (changedIndex >= 0)
                         {
                             modeler.Rebuild();

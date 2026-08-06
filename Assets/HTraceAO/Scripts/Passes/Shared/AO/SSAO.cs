@@ -59,6 +59,12 @@ namespace HTraceAO.Scripts.Passes.Shared.AO
 		internal static RTWrapper OcclusionCombined_SSAO_1       = new RTWrapper();
 		internal static RTWrapper OcclusionCombined_SSAO_2       = new RTWrapper();
 		internal static RTWrapper OcclusionCombined_SSAO_3       = new RTWrapper();
+		
+		
+		internal static RTWrapper[] Occlusion_SSAO_Array    = new RTWrapper[4];
+		internal static RTWrapper[] Occlusion_LowRes_Array  = new RTWrapper[4];
+		internal static RTWrapper[] Occlusion_HighRes_Array = new RTWrapper[4];
+		internal static RTWrapper[] Occlusion_Output_Array  = new RTWrapper[4];
 
 		// Local variables
 		internal const string _DepthTiled                    = "_DepthTiled";
@@ -72,8 +78,6 @@ namespace HTraceAO.Scripts.Passes.Shared.AO
 		internal const string _OcclusionCombined_1      = "_OcclusionCombined_1";
 		internal const string _OcclusionCombined_2      = "_OcclusionCombined_2";
 		internal const string _OcclusionCombined_3      = "_OcclusionCombined_3";
-
-		private static RenderTextureDescriptor RTDescriptor = new RenderTextureDescriptor();
 		
 		static readonly float [] SampleThickness = {
 			Mathf.Sqrt(1 - 0.2f * 0.2f),
@@ -163,10 +167,13 @@ namespace HTraceAO.Scripts.Passes.Shared.AO
 				const float screenSpaceDiameter = 10;
 				float       tanHalfFovH         = 1 / camera.projectionMatrix[0, 0];
 				cmd.SetComputeFloatParam(HRenderSSAO, HShaderParams.RejectFadeoff, -1.0f / (Mathf.Clamp(HSettings.SSAOSettings.Thickness, 0.1f, 1.0f) * 10));
-				cmd.SetComputeFloatParams(HRenderSSAO, HShaderParams.Intensity, HSettings.GeneralSettings.Intensity);
+				cmd.SetComputeFloatParam(HRenderSSAO, HShaderParams.Intensity, HSettings.GeneralSettings.Intensity);
 				cmd.SetComputeTextureParam(HRenderSSAO, (int)HRenderSSAOKernel.RenderOcclusion, HShaderParams.DepthTiled, DepthTiled_SSAO.rt);
 				
-				RTWrapper[] Occlusion_SSAO_Array = new RTWrapper[] {Occlusion_SSAO_1, Occlusion_SSAO_2, Occlusion_SSAO_3, Occlusion_SSAO_4};
+				Occlusion_SSAO_Array[0] = Occlusion_SSAO_1;
+				Occlusion_SSAO_Array[1] = Occlusion_SSAO_2;
+				Occlusion_SSAO_Array[2] = Occlusion_SSAO_3;
+				Occlusion_SSAO_Array[3] = Occlusion_SSAO_4;
 
 				for (int passIndex = 0; passIndex < HSettings.SSAOSettings.Radius; passIndex++)
 				{
@@ -194,29 +201,34 @@ namespace HTraceAO.Scripts.Passes.Shared.AO
 				cmd.SetComputeFloatParam(HDenoiseSSAO, HShaderParams.NoiseFilterStrength, noiseFilterWeight);
 				cmd.SetComputeFloatParam(HDenoiseSSAO, HShaderParams.UpsampleTolerance, upsampleTolerance);
 
-				RTWrapper[] Occlusion_LowRes_Array;
-				Occlusion_LowRes_Array = new RTWrapper[] { Occlusion_SSAO_1, Occlusion_SSAO_2, Occlusion_SSAO_3, Occlusion_SSAO_4 };
-				if (HSettings.SSAOSettings.Radius == 2)
-				Occlusion_LowRes_Array = new RTWrapper[] { OcclusionCombined_SSAO_1, Occlusion_SSAO_2, Occlusion_SSAO_3, Occlusion_SSAO_4 };
-				if (HSettings.SSAOSettings.Radius == 3)
-				Occlusion_LowRes_Array = new RTWrapper[] { OcclusionCombined_SSAO_1, OcclusionCombined_SSAO_2, Occlusion_SSAO_3, Occlusion_SSAO_4 };
-				if (HSettings.SSAOSettings.Radius == 4)
-				Occlusion_LowRes_Array = new RTWrapper[] { OcclusionCombined_SSAO_1, OcclusionCombined_SSAO_2, OcclusionCombined_SSAO_3, Occlusion_SSAO_4 };
+				Occlusion_LowRes_Array[0] = Occlusion_SSAO_1;
+				Occlusion_LowRes_Array[1] = Occlusion_SSAO_2;
+				Occlusion_LowRes_Array[2] = Occlusion_SSAO_3;
+				Occlusion_LowRes_Array[3] = Occlusion_SSAO_4;
 				
-				RTWrapper[] Occlusion_HighRes_Array = new RTWrapper[]
+				if (HSettings.SSAOSettings.Radius == 2)
+					Occlusion_LowRes_Array[0] = OcclusionCombined_SSAO_1;
+				if (HSettings.SSAOSettings.Radius == 3)
 				{
-					Occlusion_SSAO_1 /* null */,
-					Occlusion_SSAO_1,
-					Occlusion_SSAO_2,
-					Occlusion_SSAO_3
-				};
-				RTWrapper[] Occlusion_Output_Array = new RTWrapper[]
+					Occlusion_LowRes_Array[0] = OcclusionCombined_SSAO_1;
+					Occlusion_LowRes_Array[1] = OcclusionCombined_SSAO_2;
+				}
+
+				if (HSettings.SSAOSettings.Radius == 4)
 				{
-					OcclusionCombined_SSAO_0,
-					OcclusionCombined_SSAO_1,
-					OcclusionCombined_SSAO_2,
-					OcclusionCombined_SSAO_3
-				};
+					Occlusion_LowRes_Array[0] = OcclusionCombined_SSAO_1;
+					Occlusion_LowRes_Array[1] = OcclusionCombined_SSAO_2;
+					Occlusion_LowRes_Array[2] = OcclusionCombined_SSAO_3;
+				}
+				
+				Occlusion_HighRes_Array[0] = Occlusion_SSAO_1 /* null */;
+				Occlusion_HighRes_Array[1] = Occlusion_SSAO_1;
+				Occlusion_HighRes_Array[2] = Occlusion_SSAO_2;
+				Occlusion_HighRes_Array[3] = Occlusion_SSAO_3;
+				Occlusion_Output_Array[0] = OcclusionCombined_SSAO_0;
+				Occlusion_Output_Array[1] = OcclusionCombined_SSAO_1;
+				Occlusion_Output_Array[2] = OcclusionCombined_SSAO_2;
+				Occlusion_Output_Array[3] = OcclusionCombined_SSAO_3;
 				
 				for (int passIndex = (HSettings.SSAOSettings.Radius - 1); passIndex >= 0; passIndex--)
 				{

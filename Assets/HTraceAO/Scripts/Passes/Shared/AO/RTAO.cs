@@ -1,6 +1,7 @@
 //pipelinedefine
 #define H_URP
 
+using System;
 using System.Collections.Generic;
 using HTraceAO.Scripts.Data.Private;
 using HTraceAO.Scripts.Extensions;
@@ -40,8 +41,6 @@ namespace HTraceAO.Scripts.Passes.Shared.AO
 			Interpolation = 0,
 		}
 
-		public const    string        H_RENDER_RTAO_SHADER_NAME = "HRenderRTAO";
-
 		// Keywords
 		private const string NORMAL_REJECTION_TEMPORAL = "NORMAL_REJECTION_TEMPORAL";
 		private const string LANCZOS_REPROJECTION = "LANCZOS_REPROJECTION";
@@ -75,7 +74,7 @@ namespace HTraceAO.Scripts.Passes.Shared.AO
 		internal static ProfilingSamplerHTrace SpatialFilterSampler          = new ProfilingSamplerHTrace(HNames.SPATIAL_FILTER_SAMPLER,           parentName: HNames.HTRACE_RTAO_PASS_NAME, order: 3);
 		internal static ProfilingSamplerHTrace InterpolationSampler          = new ProfilingSamplerHTrace(HNames.INTERPOLATION_SAMPLER,            parentName: HNames.HTRACE_RTAO_PASS_NAME, order: 4);
 
-		internal struct HistoryCameraDataRTAO : ICameraHistoryData
+		internal struct HistoryCameraDataRTAO : ICameraHistoryData, IDisposable
 		{
 			private int hash;
 			public RTWrapper NormalHistory_RTAO;
@@ -90,6 +89,12 @@ namespace HTraceAO.Scripts.Passes.Shared.AO
 
 			public int GetHash() => hash;
 			public void SetHash(int hashIn) => this.hash = hashIn;
+
+			public void Dispose()
+			{
+				NormalHistory_RTAO?.HRelease();
+				OcclusionHistory_RTAO?.HRelease();
+			}
 		}
 
 		internal static readonly CameraHistorySystem<HistoryCameraDataRTAO> CameraHistorySystem = new CameraHistorySystem<HistoryCameraDataRTAO>();
@@ -121,8 +126,6 @@ namespace HTraceAO.Scripts.Passes.Shared.AO
 		internal const string _OcclusionHistory = "_OcclusionHistory";
 		internal const string _OcclusionFiltered = "_OcclusionFiltered";
 		internal const string _OcclusionInterpolated = "_OcclusionInterpolated";
-
-		private static RenderTextureDescriptor RTDescriptor = new RenderTextureDescriptor();
 		private static RayTracingInstanceCullingTest[] _instanceTests = new RayTracingInstanceCullingTest[1];
 		private static RayTracingInstanceCullingConfig _cullingConfig = new RayTracingInstanceCullingConfig();
 		private static RayTracingInstanceCullingTest _instanceTest = new RayTracingInstanceCullingTest();

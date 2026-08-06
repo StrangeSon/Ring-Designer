@@ -84,13 +84,13 @@ namespace Lattice.Editor
 			return _handles.Contains(handle);
 		}
 
-		public Vector3 GetPivot()
+		public Vector3 GetPivot(PivotMode mode)
 		{
 			Validate();
 
 			if (_handles.Count == 0) return default;
 
-			if (Tools.pivotMode == PivotMode.Center)
+			if (mode == PivotMode.Center)
 			{
 				Vector3 centre = Vector3.zero;
 				for (int i = 0; i < _handles.Count; i++)
@@ -103,6 +103,28 @@ namespace Lattice.Editor
 			else
 			{
 				return _lattice.GetHandleWorldPosition(_handles[^1]);
+			}
+		}
+
+		public Vector3 GetBasePivot(PivotMode mode)
+		{
+			Validate();
+
+			if (_handles.Count == 0) return default;
+
+			if (mode == PivotMode.Center)
+			{
+				Vector3 centre = Vector3.zero;
+				for (int i = 0; i < _handles.Count; i++)
+				{
+					centre += _lattice.GetHandleBaseWorldPosition(_handles[i]);
+				}
+				centre /= Count;
+				return centre;
+			}
+			else
+			{
+				return _lattice.GetHandleBaseWorldPosition(_handles[^1]);
 			}
 		}
 

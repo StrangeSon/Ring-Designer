@@ -55,6 +55,7 @@ namespace Lattice
 		/// </summary>
 		internal static void Enqueue(LatticeModifierBase modifier)
 		{
+			if (!_initialised) return;
 			_modifiers.Add(modifier);
 		}
 
@@ -63,6 +64,7 @@ namespace Lattice
 		/// </summary>
 		internal static void EnqueueSkinned(SkinnedLatticeModifier modifier)
 		{
+			if (!_initialised) return;
 			_skinnedModifiers.Add(modifier);
 		}
 
@@ -74,6 +76,15 @@ namespace Lattice
 		{
 			if (_initialised) return;
 
+			if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null)
+				return;
+
+			if (!SystemInfo.supportsComputeShaders)
+			{
+				Debug.LogError("Compute shaders not supported! Lattice modifiers will not work.");
+				return;
+			}
+
 			// Load compute shader
 			_compute = Resources.Load<ComputeShader>(ComputeShaderName);
 
@@ -84,7 +95,7 @@ namespace Lattice
 				return;
 			}
 
-			if (!Application.isEditor) 
+			if (!Application.isEditor)
 				Application.quitting += Cleanup;
 
 			// Create the buffer for storing lattice information
@@ -117,7 +128,7 @@ namespace Lattice
 		{
 			if (!_initialised) return;
 
-			if (!Application.isEditor) 
+			if (!Application.isEditor)
 				Application.quitting -= Cleanup;
 
 			// Release the lattice buffer
@@ -165,13 +176,13 @@ namespace Lattice
 		/// <summary>
 		/// Applies lattice deformations to a lattice modifier.
 		/// </summary>
-		private static void ApplyModifier(CommandBuffer cmd, LatticeModifierBase modifier)
+		internal static void ApplyModifier(CommandBuffer cmd, LatticeModifierBase modifier)
 		{
 			if ((modifier == null) || !modifier.IsValid) return;
 
 #if UNITY_EDITOR
 			// Swap compute instance if in editor
-			SwapComputeInstance(modifier);
+			SwapComputeInstance(cmd, modifier);
 #endif
 
 			// Set modifier keywords
@@ -185,7 +196,7 @@ namespace Lattice
 
 			// Reset stretch
 			MeshInfo info = modifier.MeshInfo;
-			if ((modifier.ApplyMethod == ApplyMethod.Stretch) && info.HasAdditionalBuffer())
+			if ((modifier.ResolvedApplyMethod == ApplyMethod.Stretch) && info.HasAdditionalBuffer())
 			{
 				cmd.SetComputeBufferParam(_compute, 1, AdditionalBufferId, modifier.AdditionalBuffer);
 				cmd.DispatchCompute(_compute, 1, info.VertexCount / (int)_resetGroupSize + 1, 1, 1);
@@ -232,7 +243,7 @@ namespace Lattice
 
 #if UNITY_EDITOR
 			// Swap compute instance if in editor
-			SwapComputeInstance(modifier);
+			SwapComputeInstance(cmd, modifier);
 #endif
 
 			MeshInfo info = modifier.MeshInfo;
@@ -256,7 +267,7 @@ namespace Lattice
 		/// </summary>
 		private static void SetupModifier(CommandBuffer cmd, LatticeModifierBase modifier)
 		{
-			ApplyMethod applyMethod = modifier.ApplyMethod;
+			ApplyMethod applyMethod = modifier.ResolvedApplyMethod;
 			MeshInfo info = modifier.MeshInfo;
 
 			cmd.SetKeyword(_compute, _properties.NormalsKeyword, applyMethod == ApplyMethod.PositionNormalTangent);
@@ -274,7 +285,7 @@ namespace Lattice
 
 			if (applyMethod == ApplyMethod.Stretch)
 			{
-				cmd.SetComputeIntParam(_compute, StretchOffsetId, 
+				cmd.SetComputeIntParam(_compute, StretchOffsetId,
 					info.GetTexCoordOffset((int)modifier.StretchChannel)
 				);
 			}
@@ -385,9 +396,9 @@ namespace Lattice
 				cmd.SetBufferData(_latticeBuffer, lattice.Offsets);
 
 				// Use indices
-				bool useIndices = (mask.Selection.Type == LatticeMask.SelectionSettings.MaskType.Material) && 
-					              (mask.Selection.Index >= 0) && 
-					              (mask.Selection.Index < modifier.IndexBuffers.Count);
+				bool useIndices = (mask.Selection.Type == LatticeMask.SelectionSettings.MaskType.Material) &&
+								  (mask.Selection.Index >= 0) &&
+								  (mask.Selection.Index < modifier.IndexBuffers.Count);
 
 				cmd.SetKeyword(_compute, _properties.UseIndicesKeyword, useIndices);
 
@@ -509,12 +520,15 @@ namespace Lattice
 		/// <summary>
 		/// Swaps to a compute shader instance based on the modifier's apply method.
 		/// </summary>
-		private static void SwapComputeInstance(LatticeModifierBase modifier)
+		private static void SwapComputeInstance(CommandBuffer cmd, LatticeModifierBase modifier)
 		{
-			ComputeInstance instance = _computeInstances[(int)modifier.ApplyMethod];
+			ComputeInstance instance = _computeInstances[(int)modifier.ResolvedApplyMethod];
 
 			_compute = instance.Shader;
 			_properties = instance.Properties;
+
+			// Workaround for a bug a couple of people were having with domain reloading disabled
+			cmd.SetComputeBufferParam(_compute, 0, LatticeBufferId, _latticeBuffer);
 		}
 #endif
 

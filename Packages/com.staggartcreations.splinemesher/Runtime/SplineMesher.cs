@@ -25,9 +25,10 @@ namespace sc.modeling.splines.runtime
     [SelectionBase] //Select this object when selecting caps (child objects)
     public partial class SplineMesher : MonoBehaviour
     {
-        public const string VERSION = "1.2.2";
-        public const string kPackageRoot = "Packages/com.staggartcreations.splinemesher";
-
+        public const string kPackageRoot = "Packages/xyz.staggart-creations.splinemesher-standard";
+        
+        public static readonly List<SplineMesher> Instances = new List<SplineMesher>();
+        
         /// <summary>
         /// The input mesh to be used for mesh generation
         /// </summary>
@@ -55,7 +56,10 @@ namespace sc.modeling.splines.runtime
             OnSplineRemoved = 4,
             [InspectorName("On Start()")]
             OnStart = 8,
-            OnUIChange = 16
+            OnUIChange = 16,
+            OnTransformChange = 32,
+            [InspectorName("On Mesh File Change (Editor)")]
+            OnMeshImported = 64
         }
 
         [Tooltip("Control which sort of events cause the mesh to be regenerated." +
@@ -63,7 +67,7 @@ namespace sc.modeling.splines.runtime
                  "For instance when the spline changes (default), or on the component's Start() function." +
                  "\n\n" +
                  "If none are selected you need to call the Rebuild() function through script.")]
-        public RebuildTriggers rebuildTriggers = RebuildTriggers.OnSplineAdded | RebuildTriggers.OnSplineRemoved | RebuildTriggers.OnSplineChanged | RebuildTriggers.OnUIChange;
+        public RebuildTriggers rebuildTriggers = RebuildTriggers.OnSplineAdded | RebuildTriggers.OnSplineRemoved | RebuildTriggers.OnSplineChanged | RebuildTriggers.OnUIChange | RebuildTriggers.OnTransformChange;
 
         [SerializeField]
         private MeshCollider meshCollider;
@@ -103,6 +107,10 @@ namespace sc.modeling.splines.runtime
             private set => m_meshFilter = value;
             get => m_meshFilter;
         }
+        
+        private Mesh inputMesh;
+        private Mesh outputMesh;
+        private Mesh outputCollisionMesh;
 
         private void Reset()
         {
@@ -119,6 +127,7 @@ namespace sc.modeling.splines.runtime
                 }
                 #endif
             }
+            
             #if SPLINES
             splineContainer = GetComponentInParent<SplineContainer>();
             #endif
@@ -132,6 +141,8 @@ namespace sc.modeling.splines.runtime
 
         private void OnEnable()
         {
+            Instances.Add(this);
+            
             #if SPLINES
             SubscribeSplineCallbacks();
             #endif
@@ -139,6 +150,8 @@ namespace sc.modeling.splines.runtime
 
         private void OnDisable()
         {
+            Instances.Remove(this);
+            
             #if SPLINES
             UnsubscribeSplineCallbacks();
             #endif
@@ -176,7 +189,6 @@ namespace sc.modeling.splines.runtime
             }
         }
         
-        private Mesh inputMesh;
 
         /// <summary>
         /// Regenerates the output mesh for all the splines within the assigned <see cref="SplineContainer"/>. Also recreates the collision mesh.
@@ -233,19 +245,45 @@ namespace sc.modeling.splines.runtime
                 var collision = settings.collision.enable && meshCollider;
                 if (collision) meshCollider.enabled = false;
 
+                SetColliderStates(false, false, out var startCapDisabled, out var endCapDisabled);
+                
                 Profiler.BeginSample("Spline Mesher: Create Mesh", this);
 
-                meshFilter.sharedMesh = SplineMeshGenerator.CreateMesh(splineContainer, inputMesh, outputObject.transform.worldToLocalMatrix, settings, scaleData, rollData,
+                if (outputMesh)
+                {
+                    if(Application.isPlaying) Destroy(outputMesh);
+                    else DestroyImmediate(outputMesh);
+                }
+                
+                //Required to recreate the mesh, so that it stays readable during runtime (for the CombineMeshes() function)
+                outputMesh = new Mesh();
+                
+                SplineMeshGenerator.CreateMesh(ref outputMesh, splineContainer, inputMesh, outputObject.transform.worldToLocalMatrix, settings, scaleData, rollData, conformingStrength,
                     vertexColorRedData, vertexColorGreenData, vertexColorBlueData, vertexColorAlphaData);
+                
+                meshFilter.mesh = outputMesh;
+                
+                #if UNITY_6000_0_OR_NEWER
+                //GPU Resident Drawer requires a nudge so that the GPU copy of the mesh is forcibly refreshed
+                //Related bug: https://issuetracker.unity3d.com/issues/modified-meshes-are-not-uploaded-to-gpu-in-urp-when-resident-drawer-is-enabled
+                MeshRenderer meshRenderer = outputObject.GetComponent<MeshRenderer>();
+                if (meshRenderer && meshRenderer.enabled)
+                {
+                    meshRenderer.enabled = false;
+                    meshRenderer.enabled = true;
+                }
+                #endif
 
                 Profiler.EndSample();
-
+                
+                SetColliderStates(startCapDisabled, endCapDisabled, out var _, out var _);
+                
                 if (collision) meshCollider.enabled = true;
             }
             else
             {
                 //Clear
-                if(meshFilter && meshFilter.sharedMesh) meshFilter.sharedMesh = null;
+                if(meshFilter && meshFilter.sharedMesh) meshFilter.mesh = null;
             }
             
             CreateCollider();
@@ -258,19 +296,6 @@ namespace sc.modeling.splines.runtime
 
             onPostRebuildMesh?.Invoke(this);
             onPostRebuild?.Invoke();
-            #endif
-        }
-
-        /// <summary>
-        /// Returns the build time, in milliseconds, of the last rebuild operation
-        /// </summary>
-        /// <returns></returns>
-        public float GetLastRebuildTime()
-        {
-            #if UNITY_EDITOR
-            return rebuildTimer.ElapsedMilliseconds;
-            #else
-            return 0;
             #endif
         }
 
@@ -298,29 +323,42 @@ namespace sc.modeling.splines.runtime
                     }
                 }
 
-                if (m_collisionMesh)
+                if (m_collisionMesh && meshCollider.enabled)
                 {
                     //Skip cleaning of degenerate triangles
                     //meshCollider.cookingOptions = MeshColliderCookingOptions.None;
                     
-                    //If the visual mesh and collision mesh are identical, simply use that
-                    if (m_collisionMesh.GetHashCode() == sourceMesh.GetHashCode())
-                    {
-                        meshCollider.sharedMesh = meshFilter.sharedMesh;
-                    }
-                    else
-                    {
-                        meshCollider.sharedMesh = null; //Avoid self-collision with raycasts
+                    meshCollider.enabled = false; //Avoid self-collision with raycasts
+                    SetColliderStates(false, false, out var startCapDisabled, out var endCapDisabled);
 
-                        //float spacing = settings.distribution.spacing;
-                        //settings.distribution.spacing = 0f;
-                        
-                        meshCollider.sharedMesh = SplineMeshGenerator.CreateMesh(splineContainer, m_collisionMesh, meshCollider.transform.worldToLocalMatrix, settings, scaleData, rollData);
-                        
-                        //settings.distribution.spacing = spacing;
-                        
-                        meshCollider.sharedMesh.name += " Collider";
+                    if (outputCollisionMesh)
+                    {
+                        if(Application.isPlaying) Destroy(outputCollisionMesh);
+                        else DestroyImmediate(outputCollisionMesh);
                     }
+                    outputCollisionMesh = new Mesh();
+
+                    #if !UNITY_EDITOR
+                    var readable = settings.mesh.keepReadable;
+                    //In a build, assigning a mesh to a MeshCollider requires it to be readable for further processing
+                    if (!readable && meshCollider.cookingOptions != MeshColliderCookingOptions.None) settings.mesh.keepReadable = true;
+                    #endif
+                    
+                    SplineMeshGenerator.CreateMesh(ref outputCollisionMesh, splineContainer, m_collisionMesh, meshCollider.transform.worldToLocalMatrix, settings, scaleData, rollData, conformingStrength);
+                    #if !UNITY_EDITOR
+                    settings.mesh.keepReadable = readable;
+                    #endif
+                    
+                    meshCollider.sharedMesh = outputCollisionMesh;
+                    meshCollider.sharedMesh.name += " Collider";
+                    
+                    SetColliderStates(startCapDisabled, endCapDisabled, out var _, out var _);
+                    
+                    meshCollider.enabled = true;
+                    
+                    #if DEVELOPMENT_BUILD
+                    if(outputCollisionMesh.isReadable == false) Debug.LogError("[Spline Mesher] To create collider meshes in a build, ensure the \"Keep Readable\" option is enabled");
+                    #endif
                 }
                 else
                 {
@@ -334,38 +372,51 @@ namespace sc.modeling.splines.runtime
             #endif
         }
 
-        [SerializeField] [HideInInspector]
-        private Vector3 prevSplinePosition;
-        [SerializeField] [HideInInspector]
-        private Quaternion prevSplineRotation;
-        [SerializeField] [HideInInspector]
-        private Vector3 prevSplineScale;
+        /// <summary>
+        /// Checks for changes to the Spline Container or Output Object's transform. If so, the mesh is rebuild
+        /// </summary>
+        public void ListenForTransformChanges()
+        {
+            #if SPLINES && MATHEMATICS
+            if (rebuildTriggers.HasFlag(RebuildTriggers.OnTransformChange) && Time.frameCount % 2 == 0)
+            {
+                var hasChange = false;
+                if (splineContainer)
+                {
+                    hasChange |= splineContainer.transform.hasChanged;
+                    splineContainer.transform.hasChanged = false;
+                }
+
+                if (outputObject)
+                {
+                    hasChange |= outputObject.transform.hasChanged;
+                    outputObject.transform.hasChanged = false;
+                }
+                
+                if (hasChange)
+                {
+                    Rebuild();
+                }
+            }
+            #endif
+        }
         
         private void OnDrawGizmosSelected()
         {
-            #if SPLINES && MATHEMATICS
-            if (splineContainer && Time.frameCount % 2 == 0)
-            {
-                if (rebuildTriggers.HasFlag(RebuildTriggers.OnSplineChanged))
-                {
-                    Transform splineTransform = splineContainer.transform;
-                    
-                    var hasChanged = false;
-
-                    hasChanged |= (prevSplinePosition != splineTransform.position);
-                    hasChanged |= (prevSplineRotation != splineTransform.rotation);
-                    hasChanged |= (prevSplineScale != splineTransform.lossyScale);
-                    
-                    if (hasChanged)
-                    {
-                        prevSplinePosition = splineTransform.position;
-                        prevSplineRotation = splineTransform.rotation;
-                        prevSplineScale = splineTransform.lossyScale;
-                        
-                        Rebuild();
-                    }
-                }
-            }
+            //Note: If Gizmos are disabled in the scene view, this function is called from the inspector UI instead.
+            ListenForTransformChanges();
+        }
+        
+        /// <summary>
+        /// Returns the build time, in milliseconds, of the last rebuild operation
+        /// </summary>
+        /// <returns></returns>
+        public float GetLastRebuildTime()
+        {
+            #if UNITY_EDITOR
+            return rebuildTimer.ElapsedMilliseconds;
+            #else
+            return 0;
             #endif
         }
     }

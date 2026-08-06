@@ -19,10 +19,14 @@ namespace HTraceAO.Scripts.Passes.URP
 {
     internal class SSAOPassURP : ScriptableRenderPass
     {
+	    ProfilingSampler SsaoSampler = new ProfilingSampler(HNames.HTRACE_SSAO_PASS_NAME);
+	    
 	    private static readonly int CameraNormalsTexture = Shader.PropertyToID("_CameraNormalsTexture");
 
 	    #region --------------------------- Non Render Graph ---------------------------
-        private ScriptableRenderer _renderer;
+       
+#if !UNITY_6000_4_OR_NEWER
+	    private ScriptableRenderer _renderer;
 
         protected internal void Initialize(ScriptableRenderer renderer)
         {
@@ -66,6 +70,7 @@ namespace HTraceAO.Scripts.Passes.URP
             CommandBufferPool.Release(cmd);
             return;
         }
+#endif
 
         #endregion --------------------------- Non Render Graph ---------------------------
 
@@ -79,8 +84,7 @@ namespace HTraceAO.Scripts.Passes.URP
 
 		public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
 		{
-
-			using (var builder = renderGraph.AddUnsafePass<PassData>(HNames.HTRACE_SSAO_PASS_NAME, out var passData, new ProfilingSampler(HNames.HTRACE_SSAO_PASS_NAME)))
+			using (var builder = renderGraph.AddUnsafePass<PassData>(HNames.HTRACE_SSAO_PASS_NAME, out var passData, SsaoSampler))
 			{
 				UniversalResourceData  resourceData           = frameData.Get<UniversalResourceData>();
 				UniversalCameraData    universalCameraData    = frameData.Get<UniversalCameraData>();
@@ -113,12 +117,9 @@ namespace HTraceAO.Scripts.Passes.URP
 
 		#endregion --------------------------- Render Graph ---------------------------
 
-
-
+		
 		#region --------------------------- Shared ---------------------------
-
-
-
+		
 		private static void SetupShared(Camera camera, float renderScale, RenderTextureDescriptor desc)
 		{
 		    if (SSAO.HRenderSSAO == null) SSAO.HRenderSSAO             = HExtensions.LoadComputeShader("HRenderSSAO");
@@ -129,7 +130,7 @@ namespace HTraceAO.Scripts.Passes.URP
 		    int height = (int)(camera.scaledPixelHeight * renderScale);
 
 		    if (desc.width != width || desc.height != height)
-		        desc = new RenderTextureDescriptor(width, height);
+				desc = new RenderTextureDescriptor(width, height);
 
 		    desc.depthBufferBits    = 0; // Color and depth cannot be combined in RTHandles
 		    desc.stencilFormat      = GraphicsFormat.None;

@@ -2,7 +2,7 @@
 {
 	Properties
 	{
-		[KeywordEnum(Color,UV1,UV3)] _Display("Display",int) = 0
+		[KeywordEnum(Color,UV0,UV2)] _Display("Display",int) = 0
 		
 		[Space]
 		
@@ -31,7 +31,7 @@
 			
 			#include "UnityCG.cginc"
 
-			#pragma multi_compile_local_fragment _DISPLAY_COLOR _DISPLAY_UV1 _DISPLAY_UV3
+			#pragma multi_compile_local_fragment _DISPLAY_COLOR _DISPLAY_UV0 _DISPLAY_UV2
 			
 			uint _ColorChannel;
 			uint _UVChannel;
@@ -42,15 +42,15 @@
 				float4 vertex : POSITION;
 				float4 color : COLOR;
 				float4 uv1 : TEXCOORD0;
-				float4 uv3 : TEXCOORD2;
+				float4 uv2 : TEXCOORD2;
 			};
 
 			struct Varyings
 			{
 				float4 vertex : SV_POSITION;
 				float4 color : TEXCOORD0;
-				float4 uv1 : TEXCOORD1;
-				float4 uv3 : TEXCOORD2;
+				float4 uv0 : TEXCOORD1;
+				float4 uv2 : TEXCOORD2;
 			};
 			
 			Varyings Vert (Attributes v)
@@ -59,8 +59,8 @@
 				
 				o.vertex = UnityObjectToClipPos(v.vertex);
 				o.color = v.color;
-				o.uv1 = v.uv1;
-				o.uv3 = v.uv3;
+				o.uv0 = v.uv1;
+				o.uv2 = v.uv2;
 
 				return o;
 			}
@@ -92,14 +92,14 @@
 				return RenderVertexColor(i);
 				#endif
 				
-				#if _DISPLAY_UV1
+				#if _DISPLAY_UV0
 				//float center = 1-saturate(abs(i.uv1.z - 0.5) * 2.0);
 				//return float4(center.xxx, 1.0);
-				return RenderUV(i.uv1);
+				return RenderUV(i.uv0);
 				#endif
 				
-				#if _DISPLAY_UV3
-				return RenderUV(i.uv3);
+				#if _DISPLAY_UV2
+				return RenderUV(i.uv2);
 				#endif
 				
 				return float4(0, 0, 0, 1.0);

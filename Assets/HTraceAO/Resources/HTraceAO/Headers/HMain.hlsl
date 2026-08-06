@@ -126,16 +126,13 @@ float3 GetNormalWS(uint2 pixCoordWS)
 {
     
     
-    return LoadSceneNormals(pixCoordWS);
-
-    //return LOAD_TEXTURE2D_X(_CameraNormalsTexture, pixCoordWS);
-    // #ifdef _GBUFFER_NORMALS_OCT
-    // float3 packNormalWS = LOAD_TEXTURE2D_X(_GBuffer2, pixCoordWS).rgb;
-    // float2 octNormalWS = Unpack888ToFloat2(packNormalWS);
-    // return UnpackNormalOctQuadEncode(octNormalWS * 2.0 - 1.0);
-    // #else
-    // return LOAD_TEXTURE2D_X(_GBuffer2, pixCoordWS);
-    // #endif
+    #ifdef _GBUFFER_NORMALS_OCT
+    float3 packNormalWS = LOAD_TEXTURE2D_X(_CameraNormalsTexture, pixCoordWS).xyz;
+    float2 octNormalWS = Unpack888ToFloat2(packNormalWS);
+    return UnpackNormalOctQuadEncode(octNormalWS * 2.0 - 1.0);
+    #else
+    return LOAD_TEXTURE2D_X(_CameraNormalsTexture, pixCoordWS).xyz;
+    #endif
 }
 
 float GetRoughness(uint2 pixCoord)

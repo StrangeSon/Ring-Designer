@@ -17,29 +17,7 @@ namespace HTraceAO.Scripts.Data.Public
 		public HBuffer HBuffer = HBuffer.Multi;
 		
 		[SerializeField]
-		private AmbientOcclusionMode _ambientOcclusionMode = AmbientOcclusionMode.GTAO;
-		
-		public AmbientOcclusionMode AmbientOcclusionMode
-		{
-			get
-			{
-				if ((HSettings.RTAOSettings.AlphaCutout == AlphaCutout.Evaluate && HRenderer.SupportsRayTracing == false) ||
-				    (HSettings.RTAOSettings.AlphaCutout == AlphaCutout.DepthTest && HRenderer.SupportsInlineRayTracing == false))
-				{
-					switch (_ambientOcclusionMode)
-					{
-						case AmbientOcclusionMode.SSAO:
-						case AmbientOcclusionMode.GTAO:
-							return _ambientOcclusionMode;
-						case AmbientOcclusionMode.RTAO:
-							return AmbientOcclusionMode.GTAO;
-					}	
-				}
-
-				return _ambientOcclusionMode;
-			}
-			set { _ambientOcclusionMode = value; }
-		}
+		public AmbientOcclusionMode AmbientOcclusionMode = AmbientOcclusionMode.GTAO;
 
 		[SerializeField]
 		private float _intensity = 1f;

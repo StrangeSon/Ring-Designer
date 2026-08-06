@@ -29,10 +29,12 @@ namespace sc.modeling.splines.runtime
         
         public enum SplineChangeReaction
         {
+            [InspectorName("During Changes")]
             During,
+            [InspectorName("After Changes")]
             WhenDone,
         }
-        [Tooltip("Determines when a change to the spline should be detected")]
+        [Tooltip("Determines when a change to the spline should be detected. Using the After Changes option for complex set ups to improve performance.")]
         public SplineChangeReaction splineChangeMode = SplineChangeReaction.During;
         
         //[HideInInspector]
@@ -44,6 +46,10 @@ namespace sc.modeling.splines.runtime
         /// Roll (angle in degrees) information for each spline within the container. <seealso cref="SampleRoll(float,int)"/>
         /// </summary>
         public List<SplineData<float>> rollData = new List<SplineData<float>>();
+        /// <summary>
+        /// Normalized conforming strength information for each spline within the container. <seealso cref="SampleRoll(float,int)"/>
+        /// </summary>
+        public List<SplineData<float>> conformingStrength = new List<SplineData<float>>();
         
         /// <summary>Structure to hold vertex color value for a specific location on the track.</summary>
         [Serializable]
@@ -98,6 +104,34 @@ namespace sc.modeling.splines.runtime
             
             return output;
         }
+        
+        public struct Float3Interpolator : IInterpolator<float3>
+        {
+            public Settings.InterpolationType mode;
+            
+            public float3 Interpolate(float3 a, float3 b, float t)
+            {
+                if (mode == Settings.InterpolationType.Linear)
+                {
+                    return math.lerp(a, b, t);
+                }
+                else if (mode == Settings.InterpolationType.EaseInEaseOut)
+                {
+                    float EaseInOut()
+                    {
+                        float eased = 2f * t * t;
+                        if (t > 0.5f) eased = 4f * t - eased - 1f;
+                            
+                        return eased;
+                    }
+
+                    return math.lerp(a, b, EaseInOut());
+                }
+
+                return a;
+            }
+        }
+        public static Float3Interpolator scaleInterpolator = new Float3Interpolator();
         
         private partial void SubscribeSplineCallbacks()
         {
@@ -234,8 +268,8 @@ namespace sc.modeling.splines.runtime
             #endif
             
             if (index < scaleData.Count) scaleData.RemoveAt(index);
-            
             if (index < rollData.Count) rollData.RemoveAt(index);
+            if (index < conformingStrength.Count) conformingStrength.RemoveAt(index);
 
             if (index < vertexColorRedData.Count) vertexColorRedData.RemoveAt(index);
             if (index < vertexColorGreenData.Count) vertexColorGreenData.RemoveAt(index);
@@ -266,6 +300,16 @@ namespace sc.modeling.splines.runtime
             if (!splineContainer) return;
             
             rollData.Clear();
+            ValidateData();
+            
+            Rebuild();
+        }
+        
+        public void ResetConformingData()
+        {
+            if (!splineContainer) return;
+            
+            conformingStrength.Clear();
             ValidateData();
             
             Rebuild();
@@ -309,6 +353,7 @@ namespace sc.modeling.splines.runtime
             
             ValidateScaleData();
             ValidateRollData();
+            ValidateConformingData();
             
             ValidateVertexColorData(ref vertexColorRedData);
             ValidateVertexColorData(ref vertexColorGreenData);
@@ -383,6 +428,37 @@ namespace sc.modeling.splines.runtime
             }
         }
 
+        void ValidateConformingData()
+        {
+            if (conformingStrength.Count < splineCount)
+            {
+                var delta = splineCount - conformingStrength.Count;
+                
+                for (var i = 0; i < delta; i++)
+                {
+                    #if UNITY_EDITOR
+                    UnityEditor.Undo.RecordObject(this, "Modifying Spline Mesh Conforming");
+                    #endif
+
+                    SplineData<float> data = new SplineData<float>();
+                    data.DefaultValue = 1f;
+                    data.PathIndexUnit = settings.conforming.pathIndexUnit;
+
+                    conformingStrength.Add(data);
+                }
+            }
+            
+            //One for every spline
+            for (int j = 0; j < conformingStrength.Count; j++)
+            {
+                //Index unit has changed, convert the index value
+                if (conformingStrength[j].PathIndexUnit != settings.conforming.pathIndexUnit)
+                {
+                    ConvertIndexUnit(splineContainer.Splines[j], ref conformingStrength, j, settings.conforming.pathIndexUnit);
+                }
+            }
+        }
+
         private void ConvertIndexUnit<T>(ISpline spline, ref List<SplineData<T>> data, int index, PathIndexUnit targetUnit)
         {
             //Data points
@@ -442,9 +518,11 @@ namespace sc.modeling.splines.runtime
             
             if (scaleData != null)
             {
+                scaleInterpolator.mode = settings.deforming.scaleInterpolation;
+                
                 if (scaleData[splineIndex].Count > 0)
                 {
-                    splineScale = scaleData[splineIndex].Evaluate(splineContainer.Splines[splineIndex], distance, scaleData[splineIndex].PathIndexUnit, SplineMeshGenerator.Float3Interpolator);
+                    splineScale = scaleData[splineIndex].Evaluate(splineContainer.Splines[splineIndex], distance, scaleData[splineIndex].PathIndexUnit, scaleInterpolator);
                 }
             }
 

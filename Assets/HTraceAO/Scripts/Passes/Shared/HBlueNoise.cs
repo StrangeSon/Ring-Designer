@@ -5,10 +5,10 @@ namespace HTraceAO.Scripts.Passes.Shared
 {
 	internal static class HBlueNoise
 	{
-		private static readonly  int g_OwenScrambledTexture = Shader.PropertyToID("g_OwenScrambledTexture");
-		private static readonly int g_ScramblingTileXSPP   = Shader.PropertyToID("g_ScramblingTileXSPP");
-		private static readonly int g_RankingTileXSPP      = Shader.PropertyToID("g_RankingTileXSPP");
-		private static readonly int g_ScramblingTexture    = Shader.PropertyToID("g_ScramblingTexture");
+		internal static readonly  int g_OwenScrambledTexture = Shader.PropertyToID("g_OwenScrambledTexture");
+		internal static readonly int g_ScramblingTileXSPP   = Shader.PropertyToID("g_ScramblingTileXSPP");
+		internal static readonly int g_RankingTileXSPP      = Shader.PropertyToID("g_RankingTileXSPP");
+		internal static readonly int g_ScramblingTexture    = Shader.PropertyToID("g_ScramblingTexture");
 		
 		private static         Texture2D _owenScrambledTexture;
 		public static Texture2D OwenScrambledTexture

@@ -20,6 +20,8 @@ namespace HTraceAO.Scripts.Passes.URP
 {
 	internal class PrePassURP : ScriptableRenderPass
 	{
+		ProfilingSampler PrePassSampler = new ProfilingSampler(HNames.HTRACE_PRE_PASS_NAME);
+		
 		private static Vector4 s_HRenderScalePrevious = Vector4.one;
 
 		private struct HistoryCameraData : ICameraHistoryData
@@ -37,6 +39,7 @@ namespace HTraceAO.Scripts.Passes.URP
 
 		#region --------------------------- Non Render Graph ---------------------------
 
+#if !UNITY_6000_4_OR_NEWER
 		private        ScriptableRenderer _renderer;
 
 		protected internal void Initialize(ScriptableRenderer renderer)
@@ -51,8 +54,7 @@ namespace HTraceAO.Scripts.Passes.URP
 		{
 			Camera camera = renderingData.cameraData.camera;
 
-			CameraHistorySystem.UpdateCameraHistoryIndex(camera.GetHashCode());
-			CameraHistorySystem.UpdateCameraHistoryData();
+			CameraHistorySystem.SyncCamera(camera.GetHashCode(), Time.frameCount);
 		}
 
 #if UNITY_2023_3_OR_NEWER
@@ -102,7 +104,6 @@ namespace HTraceAO.Scripts.Passes.URP
 
 				previousViewProjMatrix = viewProjMatrix;
 				previousInvViewProjMatrix = invViewProjMatrix;
-				CameraHistorySystem.GetCameraData().SetHash(camera.GetHashCode());
 
 				// HistoryCameraData currentData = CameraHistorySystem.GetCameraData();
 				// currentData.previousViewProjMatrix = viewProjMatrix;
@@ -121,12 +122,19 @@ namespace HTraceAO.Scripts.Passes.URP
 			cmd.Clear();
 			CommandBufferPool.Release(cmd);
 		}
+#endif
 
 		#endregion --------------------------- Non Render Graph ---------------------------
 
 		#region --------------------------- Render Graph ---------------------------
 
 #if UNITY_2023_3_OR_NEWER
+		
+		RTHandle OwenScrambledRTHandle;
+		RTHandle ScramblingTileXSPPRTHandle;
+		RTHandle RankingTileXSPPRTHandle;
+		RTHandle ScramblingTextureRTHandle;
+
 		private class PassData
 		{
 			public RendererListHandle  RendererListHandle;
@@ -135,7 +143,7 @@ namespace HTraceAO.Scripts.Passes.URP
 
 		public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
 		{
-			using (var builder = renderGraph.AddUnsafePass<PassData>(HNames.HTRACE_PRE_PASS_NAME, out var passData, new ProfilingSampler(HNames.HTRACE_PRE_PASS_NAME)))
+			using (var builder = renderGraph.AddRasterRenderPass<PassData>(HNames.HTRACE_PRE_PASS_NAME, out var passData, PrePassSampler))
 			{
 				UniversalResourceData  resourceData           = frameData.Get<UniversalResourceData>();
 				UniversalCameraData    universalCameraData    = frameData.Get<UniversalCameraData>();
@@ -151,16 +159,32 @@ namespace HTraceAO.Scripts.Passes.URP
 
 				Camera camera = universalCameraData.camera;
 
-				CameraHistorySystem.UpdateCameraHistoryIndex(camera.GetHashCode());
-				CameraHistorySystem.UpdateCameraHistoryData();
+				CameraHistorySystem.SyncCamera(camera.GetHashCode(), Time.frameCount);
 
-				builder.SetRenderFunc((PassData data, UnsafeGraphContext context) => ExecutePass(data, context));
+				//Blue noise
+				if (OwenScrambledRTHandle == null) OwenScrambledRTHandle = RTHandles.Alloc(HBlueNoise.OwenScrambledTexture);
+				TextureHandle owenScrambledTextureHandle = renderGraph.ImportTexture(OwenScrambledRTHandle);
+				builder.SetGlobalTextureAfterPass(owenScrambledTextureHandle, HBlueNoise.g_OwenScrambledTexture);
+
+				if (ScramblingTileXSPPRTHandle == null) ScramblingTileXSPPRTHandle = RTHandles.Alloc(HBlueNoise.ScramblingTileXSPP);
+				TextureHandle scramblingTileXSPPTextureHandle = renderGraph.ImportTexture(ScramblingTileXSPPRTHandle);
+				builder.SetGlobalTextureAfterPass(scramblingTileXSPPTextureHandle, HBlueNoise.g_ScramblingTileXSPP);
+
+				if (RankingTileXSPPRTHandle == null) RankingTileXSPPRTHandle = RTHandles.Alloc(HBlueNoise.RankingTileXSPP);
+				TextureHandle rankingTileXSPPTextureHandle = renderGraph.ImportTexture(RankingTileXSPPRTHandle);
+				builder.SetGlobalTextureAfterPass(rankingTileXSPPTextureHandle, HBlueNoise.g_RankingTileXSPP);
+
+				if (ScramblingTextureRTHandle == null) ScramblingTextureRTHandle = RTHandles.Alloc(HBlueNoise.ScramblingTexture);
+				TextureHandle scramblingTextureHandle = renderGraph.ImportTexture(ScramblingTextureRTHandle);
+				builder.SetGlobalTextureAfterPass(scramblingTextureHandle, HBlueNoise.g_ScramblingTexture);
+
+				builder.SetRenderFunc((PassData data, RasterGraphContext context) => ExecutePass(data, context));
 			}
 		}
 
-		private static void ExecutePass(PassData data, UnsafeGraphContext rgContext)
+		private static void ExecutePass(PassData data, RasterGraphContext rgContext)
 		{
-			var cmd = CommandBufferHelpers.GetNativeCommandBuffer(rgContext.cmd);
+			var cmd = rgContext.cmd;
 
 			Camera camera = data.UniversalCameraData.camera;
 
@@ -196,7 +220,6 @@ namespace HTraceAO.Scripts.Passes.URP
 
 				previousViewProjMatrix = viewProjMatrix;
 				previousInvViewProjMatrix = invViewProjMatrix;
-				CameraHistorySystem.GetCameraData().SetHash(camera.GetHashCode());
 
 				// HistoryCameraData currentData = CameraHistorySystem.GetCameraData();
 				// currentData.previousViewProjMatrix = viewProjMatrix;
@@ -207,8 +230,10 @@ namespace HTraceAO.Scripts.Passes.URP
 			// -------------- Other -----------------
 			cmd.SetGlobalInt(HShaderParams.FrameCount, s_FrameCount);
 			s_FrameCount++;
-			//	Unity's blue noise is unreliable, so we'll use ours in all pipelines
-			HBlueNoise.SetTextures(cmd);
+			
+#if UNITY_6000_4_OR_NEWER
+			cmd.EnableShaderKeyword(HShaderParams._SCREEN_SPACE_OCCLUSION);
+#endif
 		}
 
 #endif
@@ -217,6 +242,12 @@ namespace HTraceAO.Scripts.Passes.URP
 
 		protected internal void Dispose()
 		{
+#if UNITY_2023_3_OR_NEWER
+			OwenScrambledRTHandle?.Release();
+			ScramblingTileXSPPRTHandle?.Release();
+			RankingTileXSPPRTHandle?.Release();
+			ScramblingTextureRTHandle?.Release();
+#endif
 			s_FrameCount = 0;
 		}
 	}

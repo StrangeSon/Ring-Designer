@@ -1,4 +1,92 @@
-﻿1.2.2
+﻿1.4.0 (March 1st 2026)
+Package name was changed to "xyz.staggart-creations.splinemesher-standard". To adhere to new UPM standards and consistency with other packages.
+
+Fixed:
+- Script compile error if the Terrain Physics module was disabled.
+
+1.3.2 (November 28th 2025)
+
+Added:
+- Rebuild Trigger: On Mesh File Change. Rebuilds when the input mesh is altered.
+
+Fixed:
+- Input mesh loosing its submeshes if a rotation was applied
+
+1.3.1 (October 16th 2025)
+
+Added:
+- Editor to control conforming strength through data points
+- Conforming direction can now be specified: Straight down or Spline Normal
+
+Fixed:
+- Ignore Knot Rotation, reverted change made in 1.2.6, as it had unintended side effects.
+
+1.3.0 (August 20th 2025)
+
+Fixed:
+- Collision mesh not being readable in a build when the Mesh Collider had cooking options enabled.
+
+1.2.9 (July 22nd 2025)
+
+Fixed:
+- Workaround for meshes turning invisible when using the GPU Resident Drawer in Unity 6 (UUM-103207)
+
+Changed:
+- Scale tool, the current value is now displayed when scaling an axis
+
+1.2.8 (June 26th 2025)
+
+Fixed:
+- Caps, "Align" option not resulting in correct alignment if the Spline Container was rotated
+
+1.2.7 (June 5th 2025)
+
+Fixed:
+- Runtime mesh generation throwing an error about not being readable (regression since 1.2.4)
+- Collision mesh not being created if the "Collider Only" option was enabled, and the same mesh was used as for rendering
+
+1.2.6 (May 31st 2025)
+
+Fixed:
+- Tangents of spline mesh not being correct if the source mesh UV islands were vertically flipped, resulting in incorrect normal map shading
+
+Changed:
+- Ignore Knot Rotation, rotation now correctly retains the X-angle, instead of skewing the mesh
+- Minimum required version of the Splines package is now 2.8.1
+
+1.2.5 (May 14th 2025)
+
+Added:
+- Context menu option to detach cap objects
+
+Fixed:
+- Using the Conforming feature with colliders or Caps causing unwanted self-collisions.
+- Caps being destroyed and recreated upon reloading the scene, or after restarting Unity.
+- Possible script error when using the "Collider Only" option (regression from v1.2.4)
+
+1.2.4 (May 6th 2025)
+
+Changed:
+- Improved memory management when regenerating a mesh in realtime
+
+Fixed:
+- Scene not being marked as 'changed' when pressing the "Rebuild" button.
+
+1.2.3 (April 7th 2025)
+
+Added:
+- Demo scene, animated bunting/chain and bulging tube example shader graphs
+- Rebuild trigger: On Transform Change. Rebuilds the mesh whenever the spline or output is moved/rotated.
+- Scale tool, added option to choose between Linear and EaseIn/EaseOut interpolation.
+- UI warning notification if the source mesh is not marked as "readable".
+
+Changed:
+- Demo scene content is now set up for the Universal Render Pipeline by default
+
+Fixed:
+- Input mesh not being readable in a build if a rotation was used.
+
+1.2.2 (January 8th 2025)
 
 Added:
 - Support for Bakery, lightmap UVs are now generated when Bakery starts.
@@ -12,7 +100,7 @@ Fixed:
 - Issues with UI drawing if a Spline Mesher component is part of a prefab
 - Mesh tangents not being calculated correctly, resulting in inconsistent normal mapping
 
-1.2.1
+1.2.1 (September 17th 2024)
 
 Added:
 - Demo scene, new examples:
@@ -31,7 +119,7 @@ Fixed:
 Changed:
 - The Z and W components of the source mesh's UV is now also retained.
 
-1.2.0
+1.2.0 (September 9th 2024)
 IMPORTANT: Delete the Spline Mesher folder before importing this update! It now installs as a package
 Failing to do this results in all new content importing elsewhere
 
@@ -60,12 +148,12 @@ Removed:
 - Deprecated the CreateSplineFromPoints function. The native SplineUtility.FitSplineToPoints function should now be used.
 - Automatic assigning of output object (when updating from 1.0.0 to 1.1.0+)
 
-1.1.3
+1.1.3 (July 1st 2024)
 
 Fixed:
 - Script compile errors in Unity 2021.3 (unsupported)
 
-1.1.2
+1.1.2 (May 13th 2024)
 
 Added:
 - Scale tool, option to use uniforming scale
@@ -76,7 +164,7 @@ Added:
 Fixed:
 - Mesh Filter component "Convert to Spline" context menu option unintentionally adding an empty spline to the new Spline Container.
 
-1.1.1
+1.1.1 (April 20th 2024)
 
 Added:
 - Rebuild Trigger flags, sets which sort of events cause the mesh to be regenerated.
@@ -93,7 +181,7 @@ Changed:
 Removed:
 - Deprecated the "Rebuild on Start()" option (replaced by Rebuild Triggers flags).
 
-1.1.0
+1.1.0 (April 8th 2024)
 
 Added:
 - Demo scene, text description to each object explaining what is being achieved.
@@ -118,5 +206,5 @@ Fixed:
 - Using a Box-shape collider with +1 subdivisions no longer shifts the collider when using the "Spacing" parameter.
 - Mesh rotation not taking effect for a custom collider input mesh.
 
-1.0.0
+1.0.0 (March 26st 2024)
 Initial release

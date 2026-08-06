@@ -25,17 +25,10 @@ namespace sc.modeling.splines.editor
 {
     public static class SplineMeshEditor
     {
-        public const int ASSET_ID = 280289;
-        public const string DOC_URL = "http://staggart.xyz/sm-docs";
-        public const string FORUM_URL = "https://forum.unity.com/threads/1565389";
-        public const string DISCORD_INVITE_URL = "https://discord.gg/GNjEaJc8gw";
-
-        private const string MIN_SPLINES_VERSION = "2.4.0";
-        
         private static bool STARTUP_PERFORMED
         {
-            get => SessionState.GetBool("SPLINE_MESHER_EDITOR_STARTED", false);
-            set => SessionState.SetBool("SPLINE_MESHER_EDITOR_STARTED", value);
+            get => SessionState.GetBool("SPLINE_MESHER1_EDITOR_STARTED", false);
+            set => SessionState.SetBool("SPLINE_MESHER1_EDITOR_STARTED", value);
         }
         
         [InitializeOnLoadMethod]
@@ -53,7 +46,7 @@ namespace sc.modeling.splines.editor
             if (STARTUP_PERFORMED == false)
             #endif
             {
-                VersionChecking.CheckForUpdate();
+                AssetInfo.VersionChecking.CheckForUpdate();
                 STARTUP_PERFORMED = true;
             }
 
@@ -64,34 +57,99 @@ namespace sc.modeling.splines.editor
             #endif
         }
         
+        private class ModelImportCallback : AssetPostprocessor
+        {
+            //Note, need to work with paths because object references won't be valid during the importing stage
+            private static readonly List<string> importedMeshPaths = new();
+            
+            void OnPostprocessModel(GameObject gameObject)
+            {
+                MeshFilter[] meshFilters = gameObject.GetComponentsInChildren<MeshFilter>();
+                if (meshFilters.Length == 0) return;
+                
+                importedMeshPaths.Clear();
+                importedMeshPaths.Add(assetPath);
+
+                //Defer handling until after import is fully done
+                EditorApplication.delayCall += ProcessImportedMeshes;
+            }
+
+            private static void ProcessImportedMeshes()
+            {
+                if (importedMeshPaths.Count == 0)
+                    return;
+                
+                //Debug.Log($"Processing {importedMeshes.Count} imported meshes");
+
+                int instanceCount = SplineMesher.Instances.Count;
+                if (instanceCount == 0)
+                {
+                    //Debug.LogWarning("[SplineMesher.ModelImportCallback] Skipped, no mesher instances found");
+                    importedMeshPaths.Clear();
+                    return;
+                }
+
+                List<SplineMesher> toRebuild = new();
+
+                foreach (var importedMeshPath in importedMeshPaths)
+                {
+                    if (string.IsNullOrEmpty(importedMeshPath))
+                    {
+                        Debug.LogError($"[SplineMesher.ModelImportCallback] Attempting to process an empty mesh file path");
+                    }
+                    Mesh mesh = AssetDatabase.LoadAssetAtPath<Mesh>(importedMeshPath);
+
+                    //Debug.Log($"[SplineMesher.ModelImportCallback] Processing {importedMeshPath}");
+                    
+                    for (int j = 0; j < instanceCount; j++)
+                    {
+                        var mesher = SplineMesher.Instances[j];
+
+                        if (!mesher.rebuildTriggers.HasFlag(SplineMesher.RebuildTriggers.OnMeshImported)) continue;
+
+                        string mesherMeshPath = AssetDatabase.GetAssetPath(mesher.sourceMesh);
+
+                        //Ignore procedural or null input meshes
+                        if (string.IsNullOrEmpty(mesherMeshPath))
+                        {
+                            Debug.LogWarning($"[SplineMesher.ModelImportCallback] {mesher.name} skipped because its input mesh ({mesh.name}) is missing", mesher);
+                            continue;
+                        }
+
+                        if (mesherMeshPath == importedMeshPath)
+                        {
+                            //Debug.Log($"[SplineMesher.ModelImportCallback] Mesh file \"{importedMeshPath}\" has been changed and is used by {mesher.name}.");
+
+                            toRebuild.Add(mesher);
+                        }
+                        
+                    }
+                }
+
+                foreach (var mesher in toRebuild)
+                {
+                    Debug.Log($"[SplineMesher.ModelImportCallback] {mesher.name} rebuilt because one of its input meshes was reimported.");
+                    
+                    mesher.Rebuild();
+                    EditorUtility.SetDirty(mesher);
+                }
+            }
+        }
+        
         private static void OnBakeryStart(object sender, EventArgs e)
         {
             OnLightBakeStart();
         }
        
-        public static void OpenInPackageManager()
-        {
-            Application.OpenURL("com.unity3d.kharma:content/" + ASSET_ID);
-        }
-        
-        public static void OpenReviewsPage()
-        {
-            Application.OpenURL($"https://assetstore.unity.com/packages/slug/{ASSET_ID}?aid=1011l7Uk8&pubref=smeditor#reviews");
-        }
-        
-        private static void OnLightBakeStart()
+       private static void OnLightBakeStart()
         {
             if (Preferences.AutoGeneratedLightmapUV == false) return;
             
-            SplineMesher[] splineMeshers = Object.FindObjectsByType<SplineMesher>(FindObjectsSortMode.None);
-            
-            List<Mesh> meshes = new List<Mesh>();
-
             int count = 0;
             System.Diagnostics.Stopwatch lightmapUVUnwrapTimer = new System.Diagnostics.Stopwatch();
             
             //Find the spline meshes that still require lightmap UV's
-            foreach (SplineMesher splineMesher in splineMeshers)
+            foreach (SplineMesher splineMesher in SplineMesher.Instances)
             {
                 lightmapUVUnwrapTimer.Start();
                 
@@ -164,10 +222,52 @@ namespace sc.modeling.splines.editor
             Unwrapping.GenerateSecondaryUVSet(mesh, unwrapSettings);
             #endif
         }
+        
+        public static bool CheckInputMeshReadability(Mesh mesh)
+        {
+            if (mesh == null) return false;
+
+            //Saved on disk
+            if (EditorUtility.IsPersistent(mesh))
+            {
+                string assetPath = AssetDatabase.GetAssetPath(mesh);
+                
+                //Default meshes
+                if (assetPath.StartsWith("Library")) return true;
+            }
+            
+            return mesh.isReadable;
+        }
+
+        public static bool SetMeshReadWriteFlag(Mesh mesh)
+        {
+            if (mesh == null) return false;
+
+            if (EditorUtility.IsPersistent(mesh) == false)
+            {
+                string msg = $"Can't enable the read/write option on \"{mesh.name}\". Because it is not an imported mesh." +
+                             $"\n" +
+                             $"\n" +
+                             $"For script-based procedural geometry add the \"Mesh.UploadMeshData(false)\" function when creating the mesh to keep it readable.";
+                EditorUtility.DisplayDialog("Spline Mesher", msg, "Ok");
+                
+                return false;
+            }
+            
+            string assetPath = AssetDatabase.GetAssetPath(mesh);
+            ModelImporter importer = AssetImporter.GetAtPath(assetPath) as ModelImporter;
+            
+            importer.isReadable = true;
+            importer.SaveAndReimport();
+            
+            return true;
+        }
 
         #region Editor menu additions
         #if SPLINES
+        #if !SM2
         [MenuItem("CONTEXT/MeshFilter/Convert to Spline", true)]
+        #endif
         private static bool AddMesherToMeshFilterValidation(MenuCommand cmd)
         {
             MeshFilter meshFilter = (MeshFilter)cmd.context;
@@ -175,7 +275,9 @@ namespace sc.modeling.splines.editor
             return !meshFilter.GetComponent<SplineMesher>();
         }
         
+#if !SM2
         [MenuItem("CONTEXT/MeshFilter/Convert to Spline")]
+#endif
         private static void AddMesherToMeshFilter(MenuCommand cmd)
         {
             MeshFilter meshFilter = (MeshFilter)cmd.context;
@@ -241,8 +343,9 @@ namespace sc.modeling.splines.editor
             if (Application.isPlaying == false) EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
             
         }
-        
+#if !SM2
         [MenuItem("GameObject/3D Object/Spline Mesh", false, 0)]
+#endif
         public static GameObject CreateSplineMesh()
         {
             Transform parent = Selection.activeGameObject ? Selection.activeGameObject.transform : null;
@@ -310,7 +413,9 @@ namespace sc.modeling.splines.editor
             return spline;
         }
 
+#if !SM2
         [MenuItem("CONTEXT/SplineContainer/Add Spline Mesher", true, 3000)]
+#endif
         private static bool AddMesherToSplineValidation(MenuCommand cmd)
         {
             SplineContainer splineContainer = (SplineContainer)cmd.context;
@@ -318,7 +423,9 @@ namespace sc.modeling.splines.editor
             return !splineContainer.GetComponent<SplineMesher>();
         }
 
+#if !SM2
         [MenuItem("CONTEXT/SplineContainer/Add Spline Mesher", false, 3000)]
+#endif
         private static void AddMesherToSpline(MenuCommand cmd)
         {
             SplineContainer splineContainer = (SplineContainer)cmd.context;
@@ -478,65 +585,6 @@ namespace sc.modeling.splines.editor
             }
         }
         
-        internal static class VersionChecking
-        {
-            public static bool UPDATE_AVAILABLE
-            {
-                get => SessionState.GetBool("SPLINE_MESHER_UPDATE_AVAILABLE", false);
-                set => SessionState.SetBool("SPLINE_MESHER_UPDATE_AVAILABLE", value);
-            }
-            
-            public static string latestVersion = SplineMesher.VERSION;
-            private static string apiResult;
-
-            public static void CheckForUpdate()
-            {
-                //Default, in case of a fail
-                UPDATE_AVAILABLE = false;
-                
-                //Offline
-                if (Application.internetReachability == NetworkReachability.NotReachable) return;
-                
-                //Debug.Log("Checking for version update");
-                
-                var url = $"https://api.assetstore.unity3d.com/package/latest-version/{ASSET_ID}";
-
-                using (System.Net.WebClient webClient = new System.Net.WebClient())
-                {
-                    webClient.DownloadStringCompleted += OnRetrievedAPIContent;
-                    webClient.DownloadStringAsync(new System.Uri(url), apiResult);
-                }
-            }
-
-            private class AssetStoreItem
-            {
-                public string name;
-                public string version;
-            }
-
-            private static void OnRetrievedAPIContent(object sender, System.Net.DownloadStringCompletedEventArgs e)
-            {
-                if (e.Error == null && !e.Cancelled)
-                {
-                    string result = e.Result;
-
-                    AssetStoreItem asset = (AssetStoreItem)JsonUtility.FromJson(result, typeof(AssetStoreItem));
-
-                    latestVersion = asset.version;
-
-                    Version remoteVersion = new Version(asset.version);
-                    Version installedVersion = new Version(SplineMesher.VERSION);
-
-                    UPDATE_AVAILABLE = remoteVersion > installedVersion;
-
-                    if (UPDATE_AVAILABLE)
-                    {
-                        //Debug.Log($"[{asset.name} v{installedVersion}] New version ({asset.version}) is available");
-                    }
-                }
-            }
-        }
-
         public static class Preferences
         {
             public const string PreferencesPath = "Preferences/Splines/Spline Mesher";
@@ -567,10 +615,10 @@ namespace sc.modeling.splines.editor
             {
                 var provider = new SettingsProvider(PreferencesPath, SettingsScope.User)
                 {
-                    label = $"Spline Mesher",
+                    label = $"Spline Mesher Standard",
                     guiHandler = (searchContent) =>
                     {
-                        EditorGUILayout.LabelField($"v{SplineMesher.VERSION}", EditorStyles.miniLabel);
+                        EditorGUILayout.LabelField($"v{AssetInfo.VERSION}", EditorStyles.miniLabel);
                         EditorGUILayout.Space();
 
                         SectionStyleMode = (SectionStyle)EditorGUILayout.EnumPopup("Inspector section style", SectionStyleMode, GUILayout.Width(EditorGUIUtility.labelWidth + 180f));
@@ -593,6 +641,8 @@ namespace sc.modeling.splines.editor
                         HelpWindow.DrawReviewButton();
                         
                         EditorGUILayout.Space();
+                        
+                        HelpWindow.DrawProInfo();
 
                         using (new EditorGUILayout.HorizontalScope())
                         {
