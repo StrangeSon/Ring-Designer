@@ -21,7 +21,7 @@ MonoBehaviour:
     m_Value: 3
   m_Intensity:
     m_OverrideState: 1
-    m_Value: 3.09
+    m_Value: 3.2
   m_Radius:
     m_OverrideState: 1
     m_Value: 0.7
@@ -345,6 +345,7 @@ MonoBehaviour:
   - {fileID: 5378504197393555140}
   - {fileID: -8989831161646275284}
   - {fileID: -9176141743889257424}
+  - {fileID: 640243290525235465}
 --- !u!114 &118111258712959949
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -360,7 +361,7 @@ MonoBehaviour:
   active: 1
   postExposure:
     m_OverrideState: 1
-    m_Value: 1.5
+    m_Value: 1.6
   contrast:
     m_OverrideState: 0
     m_Value: 1
@@ -373,6 +374,78 @@ MonoBehaviour:
   saturation:
     m_OverrideState: 0
     m_Value: 0
+--- !u!114 &640243290525235465
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ac1e685d8f7565142b879339cd471764, type: 3}
+  m_Name: SurfaceCacheGIVolumeOverride
+  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.SurfaceCacheGIVolumeOverride
+  active: 1
+  enabled:
+    m_OverrideState: 1
+    m_Value: 1
+  multiBounce:
+    m_OverrideState: 1
+    m_Value: 1
+  bouncePatchAllocation:
+    m_OverrideState: 1
+    m_Value: 1
+  sampleCount:
+    m_OverrideState: 1
+    m_Value: 4
+  temporalSmoothing:
+    m_OverrideState: 1
+    m_Value: 0.7
+  spatialFilterEnabled:
+    m_OverrideState: 1
+    m_Value: 1
+  spatialSampleCount:
+    m_OverrideState: 1
+    m_Value: 6
+  spatialRadius:
+    m_OverrideState: 1
+    m_Value: 1.5
+  temporalPostFilter:
+    m_OverrideState: 1
+    m_Value: 1
+  lookupSampleCount:
+    m_OverrideState: 1
+    m_Value: 8
+  upsamplingKernelSize:
+    m_OverrideState: 1
+    m_Value: 5
+  upsamplingSampleCount:
+    m_OverrideState: 1
+    m_Value: 12
+  volumeSize:
+    m_OverrideState: 1
+    m_Value: 5
+  volumeResolution:
+    m_OverrideState: 1
+    m_Value: 16
+  volumeCascadeCount:
+    m_OverrideState: 1
+    m_Value: 1
+  distanceFallback:
+    m_OverrideState: 1
+    m_Value: 1
+  renderingLayerMask:
+    m_OverrideState: 0
+    m_Value:
+      serializedVersion: 0
+      m_Bits: 4294967295
+  defragCount:
+    m_OverrideState: 1
+    m_Value: 2
+  patchWarping:
+    m_OverrideState: 1
+    m_Value: 1
 --- !u!114 &849379129802519247
 MonoBehaviour:
   m_ObjectHideFlags: 3
