@@ -26,9 +26,8 @@ MonoBehaviour:
     probeVolumeBlendStatesCS: {fileID: 0}
   m_RendererFeatures:
   - {fileID: 1732946522256229361}
-  - {fileID: 412925882617092805}
-  m_RendererFeatureMap: f1c3d431aea90c18c5daf407e701bb05
-  m_UseNativeRenderPass: 1
+  - {fileID: 6724211327766272878}
+  m_RendererFeatureMap: f1c3d431aea90c186e9b2a829332515dl
   xrSystemData: {fileID: 0}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
   m_AssetVersion: 3
@@ -44,6 +43,8 @@ MonoBehaviour:
   m_DefaultStencilState:
     overrideStencilState: 0
     stencilReference: 0
+    stencilReadMask: 15
+    stencilWriteMask: 15
     stencilCompareFunction: 8
     passOperation: 2
     failOperation: 0
@@ -54,11 +55,13 @@ MonoBehaviour:
   m_CopyDepthMode: 0
   m_DepthAttachmentFormat: 0
   m_DepthTextureFormat: 0
+  m_ShadowmapStencil: 0
   m_AccurateGbufferNormals: 0
   m_IntermediateTextureMode: 0
+  m_TileOnlyMode: 0
 --- !u!114 &412925882617092805
 MonoBehaviour:
-  m_ObjectHideFlags: 0
+  m_ObjectHideFlags: 1
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -82,9 +85,13 @@ MonoBehaviour:
     BlurQuality: 0
     Falloff: 100
     SampleCount: -1
+  m_RasterizationShader: {fileID: 0}
+  m_BlueNoise256Textures: []
+  _initialized: 0
+  _previousAmbientOcclusionMode: 1
 --- !u!114 &1732946522256229361
 MonoBehaviour:
-  m_ObjectHideFlags: 0
+  m_ObjectHideFlags: 1
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -102,3 +109,38 @@ MonoBehaviour:
   passIndex: 0
   bindDepthStencilAttachment: 0
   m_Version: 1
+--- !u!114 &6724211327766272878
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f62c9c65cf3354c93be831c8bc075510, type: 3}
+  m_Name: ScreenSpaceAmbientOcclusion
+  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.ScreenSpaceAmbientOcclusion
+  m_Active: 1
+  m_Settings:
+    AOMethod: 1
+    Downsample: 0
+    AfterOpaque: 0
+    Source: 0
+    NormalSamples: 2
+    Intensity: 1
+    DirectLightingStrength: 0.25
+    Radius: 0.1
+    Samples: 1
+    BlurQuality: 1
+    Falloff: 100
+    SampleCount: -1
+    Mode: 1
+    GTAOMinimumRadiusInPixels: 40
+    UseComputeShader: 0
+    GTAOTemporalFilterEnabled: 0
+    GTAOGhostingMitigation: 0.5
+    GTAOHistoryLength: 0.9
+    GTAODirectionCount: 2
+    GTAOStepCount: 4
+    GTAOSpatialFilter: 0

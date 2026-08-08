@@ -1,19 +1,26 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using HyperSpark.Utility;
 
 namespace HyperSpark.HyperTween
 {
-    public sealed class HyperTweenManager : MonoBehaviour
+    public sealed class HyperTweenManager : Singleton<HyperTweenManager>
     {
-        public static HyperTweenManager Instance => Singleton<HyperTweenManager>.Instance;
+        private HashSet<Tween<float>> floatTweens = new HashSet<Tween<float>>();
 
-        public HashSet<Tween<float>> FloatTweens = new HashSet<Tween<float>>();
+        public void AddTween(FloatTween tween)
+        {
+            floatTweens.Add(tween);
+        }
+
+        public void RemoveTween(FloatTween tween)
+        {
+            floatTweens.Remove(tween);
+        }
 
         void Update()
         {
-            foreach (Tween<float> tween in FloatTweens)
+            foreach (Tween<float> tween in floatTweens)
             {
                 if (!tween.IsComplete)
                     tween.Update();

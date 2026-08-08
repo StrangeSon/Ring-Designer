@@ -15,12 +15,12 @@ namespace HyperSpark.HyperTween
             this.CurveFunc = curveFunc ?? DefaultCurveFunc;
             this.OnComplete = onComplete;
             this.StopFunc = stopFunc;
-            HyperTweenManager.Instance.FloatTweens.Add(this);
+            HyperTweenManager.Instance.AddTween(this);
         }
 
         ~FloatTween()
         {
-            HyperTweenManager.Instance.FloatTweens.Remove(this);
+            HyperTweenManager.Instance.RemoveTween(this);
         }
 
         private static float DefaultCurveFunc(float start, float end, float t) => Mathf.Lerp(start, end, t);
